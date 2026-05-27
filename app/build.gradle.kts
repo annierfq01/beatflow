@@ -83,8 +83,10 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
-    // Polar BLE SDK
+    // Polar BLE SDK (RxJava required for v5/v6)
     implementation(libs.polar.ble.sdk)
+    implementation(libs.rxjava3)
+    implementation(libs.rxandroid3)
 
     // MPAndroidChart
     implementation(libs.mpandroidchart)
