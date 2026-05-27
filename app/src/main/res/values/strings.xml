@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BeatFlow</string>
+    <string name="iniciar_medicion">INICIAR MEDICIÓN</string>
+    <string name="buscar_dispositivos">BUSCAR DISPOSITIVOS</string>
+    <string name="detener_medicion">DETENER MEDICIÓN</string>
+    <string name="guardar_reporte">GUARDAR REPORTE</string>
+    <string name="conectado">Conectado</string>
+    <string name="desconectado">Desconectado</string>
+    <string name="buscando">Buscando dispositivos…</string>
+    <string name="ningun_dispositivo">Ningún dispositivo Polar encontrado</string>
+    <string name="conexion_exitosa">Conexión exitosa</string>
+    <string name="conexion_fallida">Conexión fallida</string>
+    <string name="perdida_conexion">Conexión Bluetooth perdida</string>
+    <string name="guardado_exitoso">Reporte guardado exitosamente</string>
+    <string name="campos_obligatorios">Todos los campos son obligatorios</string>
+    <string name="datos_insuficientes">Datos de RR insuficientes (&lt; 30 latidos). No se pueden calcular métricas complejas.</string>
+    <string name="nombre">Nombre</string>
+    <string name="apellidos">Apellidos</string>
+    <string name="edad">Edad</string>
+    <string name="sexo">Sexo</string>
+    <string name="masculino">Masculino</string>
+    <string name="femenino">Femenino</string>
+    <string name="otro">Otro</string>
+</resources>

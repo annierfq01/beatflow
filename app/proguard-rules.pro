@@ -1,0 +1,3 @@
+-keep class com.beatflow.app.** { *; }
+-keep class kotlinx.serialization.** { *; }
+-dontwarn com.polar.sdk.**

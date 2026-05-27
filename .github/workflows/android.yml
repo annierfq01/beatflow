@@ -1,0 +1,90 @@
+name: BeatFlow CI
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Download gradle-wrapper.jar
+        run: |
+          WRAPPER_JAR="gradle/wrapper/gradle-wrapper.jar"
+          WRAPPER_VERSION="8.9"
+          curl -sL \
+            "https://raw.githubusercontent.com/gradle/gradle/v${WRAPPER_VERSION}.0/gradle/wrapper/gradle-wrapper.jar" \
+            -o "${WRAPPER_JAR}" || true
+          if [ ! -s "${WRAPPER_JAR}" ]; then
+            curl -sL "https://services.gradle.org/distributions/gradle-${WRAPPER_VERSION}-bin.zip" \
+              -o /tmp/gradle-dist.zip
+            unzip -j /tmp/gradle-dist.zip \
+              "gradle-${WRAPPER_VERSION}/lib/plugins/gradle-wrapper-${WRAPPER_VERSION}.jar" \
+              -d /tmp/ 2>/dev/null || true
+            if [ ! -s "/tmp/gradle-wrapper-${WRAPPER_VERSION}.jar" ]; then
+              unzip -j /tmp/gradle-dist.zip \
+                "gradle-${WRAPPER_VERSION}/lib/gradle-wrapper-${WRAPPER_VERSION}.jar" \
+                -d /tmp/ 2>/dev/null || true
+            fi
+            if [ ! -s "/tmp/gradle-wrapper-${WRAPPER_VERSION}.jar" ]; then
+              unzip -l /tmp/gradle-dist.zip | grep "gradle-wrapper" | awk '{print $4}' | head -1 | \
+                xargs -I{} unzip -j /tmp/gradle-dist.zip {} -d /tmp/ 2>/dev/null || true
+            fi
+            cp /tmp/gradle-wrapper*.jar "${WRAPPER_JAR}" 2>/dev/null || true
+          fi
+          if file "${WRAPPER_JAR}" | grep -q "Zip"; then
+            echo "✓ gradle-wrapper.jar is valid ($(du -h ${WRAPPER_JAR} | cut -f1))"
+          else
+            echo "✗ gradle-wrapper.jar invalid"
+            exit 1
+          fi
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BeatFlow-debug-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Build Release APK (unsigned)
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BeatFlow-release-${{ github.run_number }}
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 30

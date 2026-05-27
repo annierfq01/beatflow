@@ -1,0 +1,106 @@
+Necesito desarrollar una aplicación Android nativa en Kotlin que funcione como un medidor de Variabilidad de la Frecuencia Cardíaca (HRV) conectándose a un sensor Polar H10.
+
+Nombre de la apk: BeatFlow
+
+## Requisitos técnicos:
+- minSdk = 24 (Android 7.0)
+- Usar el SDK oficial de Polar (com.github.polarofficial:polar-ble-sdk)
+- Arquitectura recomendada: MVVM con ViewModel y LiveData/Flow
+- Persistencia local: Room Database para almacenamiento temporal durante la sesión
+- Gráficos: MPAndroidChart o similar para mostrar el ECG/señal en tiempo real
+- Compresión: Java Zip API para crear el archivo comprimido
+
+## Flujo de la aplicación:
+
+### Pantalla principal (antes de iniciar):
+- Un botón grande "INICIAR MEDICIÓN" que solo está habilitado si hay un dispositivo Polar H10 conectado
+- Un botón "BUSCAR DISPOSITIVOS" (visible si no hay conexión o se muestra alternativamente)
+- Al hacer clic en "BUSCAR DISPOSITIVOS": abrir un diálogo o ventana que escanea dispositivos Bluetooth cercanos, muestra solo los dispositivos Polar encontrados (filtra por nombre o prefijo "Polar"), y permite al usuario seleccionar uno. Al seleccionar, se conecta automáticamente.
+- Indicador visual del estado de conexión (Conectado/Desconectado)
+
+### Pantalla de medición (durante la sesión):
+- Se muestra después de hacer clic en "INICIAR MEDICIÓN"
+- Un gráfico en tiempo real que muestra la señal de frecuencia cardíaca o ECG (similar a un trazado cardíaco)
+- El gráfico debe desplazarse continuamente (scrolling) mostrando los últimos segundos de datos
+- Se deben registrar TODOS los parámetros que el Polar H10 proporciona:
+  - Frecuencia cardíaca instantánea (HR)
+  - Intervalos RR (cada latido, en milisegundos)
+  - Señal de ECG si está disponible
+  - Timestamp de cada evento (reloj del sistema)
+- Un botón grande "DETENER MEDICIÓN"
+
+### Pantalla de ingreso de datos del paciente (al detener):
+- Al hacer clic en "DETENER MEDICIÓN", se detiene la grabación y se muestra un formulario modal o nueva pantalla con campos OBLIGATORIOS:
+  - Nombre (texto)
+  - Apellidos (texto)
+  - Edad (número)
+  - Sexo (opciones: Masculino/Femenino/Otro)
+- Botón "GUARDAR REPORTE"
+
+### Pantalla de reporte (después de guardar):
+- Una vez guardados los datos del paciente, se muestra una pantalla con TODAS las métricas de HRV calculadas a partir de los intervalos RR registrados. Debe incluir al menos:
+
+**Dominio del tiempo:**
+- Mean HR (latidos por minuto)
+- SDNN (desviación estándar de intervalos NN)
+- RMSSD (raíz cuadrada de la media de diferencias al cuadrado)
+- pNN50 (porcentaje de diferencias > 50ms)
+- Max HR, Min HR
+
+**Dominio de la frecuencia:**
+- LF (baja frecuencia, potencia)
+- HF (alta frecuencia, potencia)
+- Relación LF/HF
+
+**Métricas no lineales:**
+- SD1 (Poincaré plot desviación estándar eje transversal)
+- SD2 (Poincaré plot desviación estándar eje longitudinal)
+
+- También se debe mostrar un resumen: fecha/hora del estudio, duración total de la grabación
+
+### Formato de guardado:
+Al guardar, el sistema debe generar un único archivo con extensión ".hrv" que en realidad sea un archivo ZIP conteniendo:
+1. Un archivo CSV con TODOS los registros en bruto (timestamp, HR, RR, ECG_signal si existe)
+2. Un archivo JSON con:
+   - Datos del paciente (nombre, apellidos, edad, sexo)
+   - Fecha y hora de la sesión
+   - Duración de la grabación
+   - TODAS las métricas HRV calculadas (las listadas arriba)
+   - Configuración/metadatos adicionales
+
+El archivo .hrv debe guardarse en el almacenamiento externo público en una carpeta "HRV_Measurements/" con nombre de archivo único (ej: "20250115_143000_nombre_apellido.hrv")
+
+## Interfaz de usuario:
+- Material Design 3 (Material You)
+- Modo oscuro soportado
+- Responsive (funciona en móviles y tablets)
+- Icono de la app personalizado (puede ser un corazón)
+- Mensajes Toast o Snackbar para feedback de acciones (conexión exitosa/fallida, guardado completado, etc.)
+
+## Manejo de errores:
+- Si se pierde la conexión Bluetooth durante la medición, mostrar advertencia y permitir reconectar o detener la sesión
+- Verificar permisos Bluetooth y de almacenamiento (solicitar en tiempo de ejecución)
+- Validar que todos los campos del paciente estén llenos antes de guardar
+- Si no hay datos de RR suficientes (< 30 latidos), mostrar mensaje de advertencia y no calcular métricas complejas
+
+## Estructura del código esperada:
+- MainActivity.kt (o mejor, una Activity principal y Fragments para cada pantalla)
+- BluetoothViewModel.kt (con LiveData/StateFlow)
+- HrvCalculator.kt (clase separada para cálculos HRV)
+- FileExporter.kt (para generar CSV, JSON y ZIP)
+- PolarManager.kt (clase para gestionar SDK de Polar y callbacks)
+- PatientData.kt (data class)
+- HrvSession.kt (data class para sesión completa)
+- hrv_metrics.json (estructura ejemplo)
+
+## Entrega esperada:
+El código completo de la aplicación, organizado por archivos, incluyendo:
+- Archivos Kotlin
+- Archivos de layout XML
+- Archivo AndroidManifest.xml con todos los permisos necesarios
+- Archivo build.gradle (app level) con dependencias completas
+- Archivo build.gradle (project level) con repositorios
+- Strings.xml con textos en español
+
+## Nota adicional:
+Implementar el cálculo real de métricas HRV usando fórmulas estándar (no datos falsos). Los cálculos deben basarse en la serie de intervalos RR recolectados durante la sesión.
