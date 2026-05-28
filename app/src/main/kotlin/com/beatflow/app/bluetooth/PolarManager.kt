@@ -1,6 +1,12 @@
 package com.beatflow.app.bluetooth
 
 import android.content.Context
+import com.polar.sdk.api.PolarBleApi
+import com.polar.sdk.api.PolarBleApiCallback
+import com.polar.sdk.api.PolarBleApiDefaultImpl
+import com.polar.sdk.api.model.PolarDeviceInfo
+import com.polar.sdk.api.model.PolarHrData
+import com.polar.sdk.api.model.PolarSensorSetting
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.Disposable
 import kotlinx.coroutines.channels.awaitClose
@@ -9,11 +15,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import com.polar.sdk.api.PolarBleApi
-import com.polar.sdk.api.PolarBleApiCallback
-import com.polar.sdk.api.PolarBleApiDefaultImpl
-import com.polar.sdk.api.model.PolarDeviceInfo
-import com.polar.sdk.api.model.PolarHrData
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,7 +43,12 @@ class PolarManager @Inject constructor(
 ) {
     private val api: PolarBleApi = PolarBleApiDefaultImpl.defaultImplementation(
         context,
-        PolarBleApi.ALL_FEATURES
+        setOf(
+            PolarBleApi.PolarBleSdkFeature.FEATURE_HR,
+            PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING,
+            PolarBleApi.PolarBleSdkFeature.FEATURE_BATTERY_INFO,
+            PolarBleApi.PolarBleSdkFeature.FEATURE_DEVICE_INFO
+        )
     )
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -61,6 +67,8 @@ class PolarManager @Inject constructor(
     private val _foundDevices = MutableStateFlow<List<PolarDevice>>(emptyList())
     val foundDevices: StateFlow<List<PolarDevice>> = _foundDevices.asStateFlow()
 
+    private var lastConnectedDeviceId: String? = null
+
     init {
         api.setApiCallback(object : PolarBleApiCallback() {
             override fun blePowerStateChanged(powered: Boolean) {
@@ -69,36 +77,46 @@ class PolarManager @Inject constructor(
                 }
             }
 
-            override fun deviceConnected(device: PolarDeviceInfo) {
-                _connectionState.value = ConnectionState.Connected(device.deviceId)
+            override fun deviceConnected(polarDeviceInfo: PolarDeviceInfo) {
+                lastConnectedDeviceId = polarDeviceInfo.deviceId
+                _connectionState.value = ConnectionState.Connected(polarDeviceInfo.deviceId)
             }
 
-            override fun deviceConnecting(device: PolarDeviceInfo) {
-                _connectionState.value = ConnectionState.Connecting(device.deviceId)
+            override fun deviceConnecting(polarDeviceInfo: PolarDeviceInfo) {
+                _connectionState.value = ConnectionState.Connecting(polarDeviceInfo.deviceId)
             }
 
-            override fun deviceDisconnected(device: PolarDeviceInfo) {
+            override fun deviceDisconnected(polarDeviceInfo: PolarDeviceInfo) {
                 _connectionState.value = ConnectionState.Disconnected
             }
 
-            override fun hrNotificationReady(identifier: String) {
-                hrDisposable = api.startHrStreaming(identifier)
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(
-                        { hrData ->
-                            _hrMeasurements.value = HrMeasurement(
-                                hr = hrData.hr,
-                                rr = hrData.rrs.toList(),
-                                timestamp = System.currentTimeMillis()
-                            )
-                        },
-                        { _ -> }
-                    )
+            override fun bleSdkFeatureReady(
+                identifier: String,
+                feature: PolarBleApi.PolarBleSdkFeature
+            ) {
+                if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_HR) {
+                    hrDisposable = api.startHrStreaming(identifier)
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(
+                            { hrData: PolarHrData ->
+                                _hrMeasurements.value = HrMeasurement(
+                                    hr = hrData.hr,
+                                    rr = hrData.rrsMs.map { it.toDouble() },
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            },
+                            { _ -> }
+                        )
+                }
             }
 
-            override fun polarFirmwareVersionReceived(identifier: String, firmware: String) {}
+            override fun disInformationReceived(
+                identifier: String,
+                uuid: UUID,
+                value: String
+            ) {}
 
-            override fun disInformationReceived(identifier: String, uuid: UUID, value: String) {}
+            override fun batteryLevelReceived(identifier: String, level: Int) {}
         })
     }
 
@@ -138,21 +156,22 @@ class PolarManager @Inject constructor(
     fun disconnect() {
         hrDisposable?.dispose()
         ecgDisposable?.dispose()
-        api.disconnectFromDevice(
-            when (val state = _connectionState.value) {
-                is ConnectionState.Connected -> state.deviceId
-                is ConnectionState.Connecting -> state.deviceId
-                is ConnectionState.Disconnected -> return
-            }
-        )
+        val deviceId = lastConnectedDeviceId ?: return
+        api.disconnectFromDevice(deviceId)
     }
 
     fun startEcgStreaming(deviceId: String) {
-        ecgDisposable = api.startEcgStreaming(deviceId)
+        val defaultSetting = PolarSensorSetting(
+            mapOf(
+                PolarSensorSetting.PolarSensorDataType.ECG to
+                        PolarSensorSetting.PolarSensorDataSettings(listOf(130))
+            )
+        )
+        ecgDisposable = api.startEcgStreaming(deviceId, defaultSetting)
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(
                 { ecgData ->
-                    _ecgSamples.value = ecgData.samples.toList()
+                    _ecgSamples.value = ecgData.samples.map { it.voltage }
                 },
                 { _ -> }
             )
