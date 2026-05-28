@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -186,7 +187,7 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                     xAxis.isEnabled = false
                     axisLeft.apply {
                         setDrawGridLines(true)
-                        gridColor = BeatFlowColors.ChartGrid
+                        gridColor = BeatFlowColors.ChartGrid.toArgb()
                         textColor = android.graphics.Color.GRAY
                         setDrawLabels(true)
                     }
@@ -198,14 +199,14 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                     }
                     if (entries.isNotEmpty()) {
                         val dataSet = LineDataSet(entries, "HR").apply {
-                            color = BeatFlowColors.ChartLine
-                            setCircleColor(BeatFlowColors.ChartLine)
+                            color = BeatFlowColors.ChartLine.toArgb()
+                            setCircleColor(BeatFlowColors.ChartLine.toArgb())
                             circleRadius = 2f
                             setDrawValues(false)
                             lineWidth = 2f
                             mode = LineDataSet.Mode.LINEAR
                             setDrawFilled(true)
-                            fillColor = BeatFlowColors.ChartLine
+                            fillColor = BeatFlowColors.ChartLine.toArgb()
                             fillAlpha = 30
                         }
                         data = LineData(dataSet)
@@ -220,14 +221,14 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                 }
                 if (entries.isNotEmpty()) {
                     val dataSet = LineDataSet(entries, "HR").apply {
-                        color = BeatFlowColors.ChartLine
-                        setCircleColor(BeatFlowColors.ChartLine)
+                        color = BeatFlowColors.ChartLine.toArgb()
+                        setCircleColor(BeatFlowColors.ChartLine.toArgb())
                         circleRadius = 2f
                         setDrawValues(false)
                         lineWidth = 2f
                         mode = LineDataSet.Mode.LINEAR
                         setDrawFilled(true)
-                        fillColor = BeatFlowColors.ChartLine
+                        fillColor = BeatFlowColors.ChartLine.toArgb()
                         fillAlpha = 30
                     }
                     chart.data = LineData(dataSet)

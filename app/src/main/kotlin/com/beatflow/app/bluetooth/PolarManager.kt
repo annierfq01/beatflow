@@ -9,11 +9,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import polar.com.sdk.api.PolarBleApi
-import polar.com.sdk.api.PolarBleApiCallback
-import polar.com.sdk.api.PolarBleApiDefaultImpl
-import polar.com.sdk.api.model.PolarDeviceInfo
-import polar.com.sdk.api.model.PolarHrData
+import com.polar.sdk.api.PolarBleApi
+import com.polar.sdk.api.PolarBleApiCallback
+import com.polar.sdk.api.PolarBleApiDefaultImpl
+import com.polar.sdk.api.model.PolarDeviceInfo
+import com.polar.sdk.api.model.PolarHrData
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
