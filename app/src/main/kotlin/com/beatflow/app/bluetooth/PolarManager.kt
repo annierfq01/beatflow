@@ -99,11 +99,14 @@ class PolarManager @Inject constructor(
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(
                             { hrData: PolarHrData ->
-                                _hrMeasurements.value = HrMeasurement(
-                                    hr = hrData.hr,
-                                    rr = hrData.rrsMs.map { it.toDouble() },
-                                    timestamp = System.currentTimeMillis()
-                                )
+                                val sample = hrData.samples.firstOrNull()
+                                if (sample != null) {
+                                    _hrMeasurements.value = HrMeasurement(
+                                        hr = sample.hr,
+                                        rr = sample.rrsMs.map { it.toDouble() },
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                }
                             },
                             { _ -> }
                         )
@@ -114,6 +117,16 @@ class PolarManager @Inject constructor(
                 identifier: String,
                 uuid: UUID,
                 value: String
+            ) {}
+
+            override fun disInformationReceived(
+                identifier: String,
+                disInfo: com.polar.androidcommunications.api.ble.model.DisInfo
+            ) {}
+
+            override fun htsNotificationReceived(
+                identifier: String,
+                data: com.polar.sdk.api.model.PolarHealthThermometerData
             ) {}
 
             override fun batteryLevelReceived(identifier: String, level: Int) {}
@@ -162,16 +175,13 @@ class PolarManager @Inject constructor(
 
     fun startEcgStreaming(deviceId: String) {
         val defaultSetting = PolarSensorSetting(
-            mapOf(
-                PolarSensorSetting.PolarSensorDataType.ECG to
-                        PolarSensorSetting.PolarSensorDataSettings(listOf(130))
-            )
+            mapOf(PolarSensorSetting.SettingType.SAMPLE_RATE to 130)
         )
         ecgDisposable = api.startEcgStreaming(deviceId, defaultSetting)
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(
                 { ecgData ->
-                    _ecgSamples.value = ecgData.samples.map { it.voltage }
+                    _ecgSamples.value = ecgData.samples.map { (it as com.polar.sdk.api.model.FecgSample).ecg.toDouble() }
                 },
                 { _ -> }
             )
