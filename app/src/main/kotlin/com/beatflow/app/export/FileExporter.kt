@@ -3,6 +3,7 @@ package com.beatflow.app.export
 import android.content.Context
 import android.os.Environment
 import com.beatflow.app.domain.model.HrvSession
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -17,7 +18,7 @@ import javax.inject.Singleton
 
 @Singleton
 class FileExporter @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
     private val json = Json {
         prettyPrint = true

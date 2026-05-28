@@ -7,6 +7,7 @@ import com.polar.sdk.api.PolarBleApiDefaultImpl
 import com.polar.sdk.api.model.PolarDeviceInfo
 import com.polar.sdk.api.model.PolarHrData
 import com.polar.sdk.api.model.PolarSensorSetting
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.Disposable
 import kotlinx.coroutines.channels.awaitClose
@@ -39,7 +40,7 @@ data class PolarDevice(
 
 @Singleton
 class PolarManager @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
     private val api: PolarBleApi = PolarBleApiDefaultImpl.defaultImplementation(
         context,
