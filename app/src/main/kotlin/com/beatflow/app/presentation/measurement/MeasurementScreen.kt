@@ -479,59 +479,6 @@ private fun EcgChart(ecgSamples: List<Double>) {
         )
     }
 }
-                    axisLeft.apply {
-                        setDrawGridLines(true)
-                        gridColor = BeatFlowColors.ChartGrid.toArgb()
-                        textColor = android.graphics.Color.GRAY
-                        setDrawLabels(true)
-                        setLabelCount(4, true)
-                    }
-                    axisRight.isEnabled = false
-                    setTouchEnabled(true)
-
-                    val entries = ecgSamples.mapIndexed { index, value ->
-                        Entry(index.toFloat(), value.toFloat())
-                    }
-                    if (entries.isNotEmpty()) {
-                        val dataSet = LineDataSet(entries, "ECG").apply {
-                            color = android.graphics.Color.GREEN
-                            setDrawCircles(false)
-                            setDrawValues(false)
-                            lineWidth = 1.2f
-                            mode = LineDataSet.Mode.LINEAR
-                            setDrawFilled(false)
-                            setHighlightEnabled(false)
-                        }
-                        data = LineData(dataSet)
-                        notifyDataSetChanged()
-                        invalidate()
-                        moveViewToX(entries.last().x)
-                    }
-                }
-            },
-            update = { chart ->
-                val entries = ecgSamples.mapIndexed { index, value ->
-                    Entry(index.toFloat(), value.toFloat())
-                }
-                if (entries.isNotEmpty()) {
-                    val dataSet = LineDataSet(entries, "ECG").apply {
-                        color = android.graphics.Color.GREEN
-                        setDrawCircles(false)
-                        setDrawValues(false)
-                        lineWidth = 1.2f
-                        mode = LineDataSet.Mode.LINEAR
-                        setDrawFilled(false)
-                        setHighlightEnabled(false)
-                    }
-                    chart.data = LineData(dataSet)
-                    chart.notifyDataSetChanged()
-                    chart.invalidate()
-                    chart.moveViewToX(entries.last().x)
-                }
-            }
-        )
-    }
-}
 
 @Composable
 private fun HrValueCard(hr: Int, rr: Double?) {

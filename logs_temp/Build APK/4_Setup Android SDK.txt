@@ -1,29 +1,29 @@
-﻿2026-06-01T20:22:05.7469503Z ##[group]Run ANDROID_SDK_ROOT="${ANDROID_HOME:-$HOME/android-sdk}"
-2026-06-01T20:22:05.7471441Z [36;1mANDROID_SDK_ROOT="${ANDROID_HOME:-$HOME/android-sdk}"[0m
-2026-06-01T20:22:05.7472969Z [36;1mSDK_MANAGER_VERSION="12266719"[0m
-2026-06-01T20:22:05.7474521Z [36;1mCMDLINE_TOOLS_DIR="${ANDROID_SDK_ROOT}/cmdline-tools/latest"[0m
-2026-06-01T20:22:05.7476083Z [36;1m[0m
-2026-06-01T20:22:05.7477208Z [36;1mif [ -f "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" ]; then[0m
-2026-06-01T20:22:05.7479002Z [36;1m  echo "sdkmanager already installed"[0m
-2026-06-01T20:22:05.7480259Z [36;1melse[0m
-2026-06-01T20:22:05.7481324Z [36;1m  mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"[0m
-2026-06-01T20:22:05.7482780Z [36;1m  cd "${ANDROID_SDK_ROOT}/cmdline-tools"[0m
-2026-06-01T20:22:05.7485389Z [36;1m  curl -sL "https://dl.google.com/android/repository/commandlinetools-linux-${SDK_MANAGER_VERSION}_latest.zip" -o cmdline-tools.zip[0m
-2026-06-01T20:22:05.7487965Z [36;1m  unzip -q cmdline-tools.zip[0m
-2026-06-01T20:22:05.7489589Z [36;1m  mv cmdline-tools latest 2>/dev/null || true[0m
-2026-06-01T20:22:05.7490953Z [36;1m  rm -f cmdline-tools.zip[0m
-2026-06-01T20:22:05.7492042Z [36;1mfi[0m
-2026-06-01T20:22:05.7492872Z [36;1m[0m
-2026-06-01T20:22:05.7494641Z [36;1myes | "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses > /dev/null 2>&1 || true[0m
-2026-06-01T20:22:05.7497193Z [36;1m"${CMDLINE_TOOLS_DIR}/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" \[0m
-2026-06-01T20:22:05.7499075Z [36;1m  "platforms;android-35" \[0m
-2026-06-01T20:22:05.7500235Z [36;1m  "build-tools;35.0.0" \[0m
-2026-06-01T20:22:05.7501357Z [36;1m  "platform-tools" \[0m
-2026-06-01T20:22:05.7502589Z [36;1m  > /dev/null 2>&1[0m
-2026-06-01T20:22:05.7539912Z shell: /usr/bin/bash -e {0}
-2026-06-01T20:22:05.7541030Z env:
-2026-06-01T20:22:05.7542288Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.19-10/x64
-2026-06-01T20:22:05.7544337Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.19-10/x64
-2026-06-01T20:22:05.7545979Z ##[endgroup]
-2026-06-01T20:22:05.7643053Z sdkmanager already installed
-2026-06-01T20:22:12.6796336Z yes: standard output: Broken pipe
+﻿2026-06-01T21:01:45.4511838Z ##[group]Run ANDROID_SDK_ROOT="${ANDROID_HOME:-$HOME/android-sdk}"
+2026-06-01T21:01:45.4513786Z [36;1mANDROID_SDK_ROOT="${ANDROID_HOME:-$HOME/android-sdk}"[0m
+2026-06-01T21:01:45.4515303Z [36;1mSDK_MANAGER_VERSION="12266719"[0m
+2026-06-01T21:01:45.4516863Z [36;1mCMDLINE_TOOLS_DIR="${ANDROID_SDK_ROOT}/cmdline-tools/latest"[0m
+2026-06-01T21:01:45.4518449Z [36;1m[0m
+2026-06-01T21:01:45.4519557Z [36;1mif [ -f "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" ]; then[0m
+2026-06-01T21:01:45.4521071Z [36;1m  echo "sdkmanager already installed"[0m
+2026-06-01T21:01:45.4522459Z [36;1melse[0m
+2026-06-01T21:01:45.4523540Z [36;1m  mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"[0m
+2026-06-01T21:01:45.4525012Z [36;1m  cd "${ANDROID_SDK_ROOT}/cmdline-tools"[0m
+2026-06-01T21:01:45.4527637Z [36;1m  curl -sL "https://dl.google.com/android/repository/commandlinetools-linux-${SDK_MANAGER_VERSION}_latest.zip" -o cmdline-tools.zip[0m
+2026-06-01T21:01:45.4530207Z [36;1m  unzip -q cmdline-tools.zip[0m
+2026-06-01T21:01:45.4531803Z [36;1m  mv cmdline-tools latest 2>/dev/null || true[0m
+2026-06-01T21:01:45.4533179Z [36;1m  rm -f cmdline-tools.zip[0m
+2026-06-01T21:01:45.4534302Z [36;1mfi[0m
+2026-06-01T21:01:45.4535142Z [36;1m[0m
+2026-06-01T21:01:45.4536929Z [36;1myes | "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses > /dev/null 2>&1 || true[0m
+2026-06-01T21:01:45.4539497Z [36;1m"${CMDLINE_TOOLS_DIR}/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" \[0m
+2026-06-01T21:01:45.4541432Z [36;1m  "platforms;android-35" \[0m
+2026-06-01T21:01:45.4542592Z [36;1m  "build-tools;35.0.0" \[0m
+2026-06-01T21:01:45.4543714Z [36;1m  "platform-tools" \[0m
+2026-06-01T21:01:45.4544800Z [36;1m  > /dev/null 2>&1[0m
+2026-06-01T21:01:45.4579714Z shell: /usr/bin/bash -e {0}
+2026-06-01T21:01:45.4580818Z env:
+2026-06-01T21:01:45.4582394Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.19-10/x64
+2026-06-01T21:01:45.4584460Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.19-10/x64
+2026-06-01T21:01:45.4586100Z ##[endgroup]
+2026-06-01T21:01:45.4693638Z sdkmanager already installed
+2026-06-01T21:01:51.1116876Z yes: standard output: Broken pipe
