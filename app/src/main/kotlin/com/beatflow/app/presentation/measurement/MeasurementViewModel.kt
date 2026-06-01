@@ -7,7 +7,6 @@ import com.beatflow.app.bluetooth.PolarManager
 import com.beatflow.app.data.repository.SessionRepository
 import com.beatflow.app.domain.model.RawRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlin.concurrent.synchronized
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,11 +69,8 @@ class MeasurementViewModel @Inject constructor(
         ecgSaveJob = viewModelScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(500)
-                val toSave = synchronized(ecgPersistenceBuffer) {
-                    val batch = ecgPersistenceBuffer.toList()
-                    ecgPersistenceBuffer.clear()
-                    batch
-                }
+                val toSave = ecgPersistenceBuffer.toList()
+                ecgPersistenceBuffer.clear()
                 val timestamp = System.currentTimeMillis()
                 toSave.forEach { value ->
                     pendingRecords.add(
@@ -121,9 +117,7 @@ class MeasurementViewModel @Inject constructor(
             polarManager.ecgSamples.collect { samples ->
                 if (samples.isNotEmpty()) {
                     ecgDisplayBuffer.addAll(samples)
-                    synchronized(ecgPersistenceBuffer) {
-                        ecgPersistenceBuffer.addAll(samples)
-                    }
+                    ecgPersistenceBuffer.addAll(samples)
                     while (ecgDisplayBuffer.size > ECG_WINDOW_SIZE) {
                         ecgDisplayBuffer.removeFirst()
                     }
