@@ -334,29 +334,27 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                 }
             },
             update = { chart ->
-                val windowSize = 5
-                val windowed = hrHistory.takeLast(windowSize)
-                val entries = windowed.mapIndexed { index, hr ->
-                    Entry(index.toFloat(), hr.hr.toFloat())
+                val windowSize = MeasurementViewModel.HR_CHART_SIZE
+                val data = hrHistory.takeLast(windowSize)
+                if (data.isEmpty()) return@update
+                val values = data.map { it.hr.toFloat() }
+                val entries = values.mapIndexed { i, v -> Entry(i.toFloat(), v) }
+                chart.xAxis.axisMinimum = 0f
+                chart.xAxis.axisMaximum = (windowSize - 1).toFloat()
+                val dataSet = LineDataSet(entries, "HR").apply {
+                    color = BeatFlowColors.ChartLine.toArgb()
+                    setCircleColor(BeatFlowColors.ChartLine.toArgb())
+                    circleRadius = 3f
+                    setDrawValues(false)
+                    lineWidth = 3f
+                    mode = LineDataSet.Mode.LINEAR
+                    setDrawFilled(true)
+                    fillColor = BeatFlowColors.ChartLine.toArgb()
+                    fillAlpha = 25
                 }
-                if (entries.isNotEmpty()) {
-                    chart.xAxis.axisMinimum = -0.5f
-                    chart.xAxis.axisMaximum = windowSize - 0.5f
-                    val dataSet = LineDataSet(entries, "HR").apply {
-                        color = BeatFlowColors.ChartLine.toArgb()
-                        setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                        circleRadius = 3f
-                        setDrawValues(false)
-                        lineWidth = 3f
-                        mode = LineDataSet.Mode.LINEAR
-                        setDrawFilled(true)
-                        fillColor = BeatFlowColors.ChartLine.toArgb()
-                        fillAlpha = 25
-                    }
-                    chart.data = LineData(dataSet)
-                    chart.notifyDataSetChanged()
-                    chart.invalidate()
-                }
+                chart.data = LineData(dataSet)
+                chart.notifyDataSetChanged()
+                chart.invalidate()
             }
         )
     }
@@ -393,29 +391,27 @@ private fun RrChart(rrIntervals: List<Double>) {
                 }
             },
             update = { chart ->
-                val windowSize = 5
-                val windowed = rrIntervals.takeLast(windowSize)
-                val entries = windowed.mapIndexed { index, rr ->
-                    Entry(index.toFloat(), rr.toFloat())
+                val windowSize = MeasurementViewModel.RR_CHART_SIZE
+                val data = rrIntervals.takeLast(windowSize)
+                if (data.isEmpty()) return@update
+                val values = data.map { it.toFloat() }
+                val entries = values.mapIndexed { i, v -> Entry(i.toFloat(), v) }
+                chart.xAxis.axisMinimum = 0f
+                chart.xAxis.axisMaximum = (windowSize - 1).toFloat()
+                val dataSet = LineDataSet(entries, "RR").apply {
+                    color = BeatFlowColors.ChartLine.toArgb()
+                    setCircleColor(BeatFlowColors.ChartLine.toArgb())
+                    circleRadius = 3f
+                    setDrawValues(false)
+                    lineWidth = 3f
+                    mode = LineDataSet.Mode.LINEAR
+                    setDrawFilled(true)
+                    fillColor = BeatFlowColors.ChartLine.toArgb()
+                    fillAlpha = 25
                 }
-                if (entries.isNotEmpty()) {
-                    chart.xAxis.axisMinimum = -0.5f
-                    chart.xAxis.axisMaximum = windowSize - 0.5f
-                    val dataSet = LineDataSet(entries, "RR").apply {
-                        color = BeatFlowColors.ChartLine.toArgb()
-                        setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                        circleRadius = 3f
-                        setDrawValues(false)
-                        lineWidth = 3f
-                        mode = LineDataSet.Mode.LINEAR
-                        setDrawFilled(true)
-                        fillColor = BeatFlowColors.ChartLine.toArgb()
-                        fillAlpha = 25
-                    }
-                    chart.data = LineData(dataSet)
-                    chart.notifyDataSetChanged()
-                    chart.invalidate()
-                }
+                chart.data = LineData(dataSet)
+                chart.notifyDataSetChanged()
+                chart.invalidate()
             }
         )
     }
@@ -456,25 +452,23 @@ private fun EcgChart(ecgSamples: List<Double>) {
                 }
             },
             update = { chart ->
-                val windowSize = 650
-                val windowed = ecgSamples.takeLast(windowSize)
-                val entries = windowed.mapIndexed { index, value ->
-                    Entry(index.toFloat(), value.toFloat())
+                val windowSize = MeasurementViewModel.ECG_CHART_SIZE
+                val data = ecgSamples.takeLast(windowSize)
+                if (data.isEmpty()) return@update
+                val values = data.map { it.toFloat() }
+                val entries = values.mapIndexed { i, v -> Entry(i.toFloat(), v) }
+                chart.xAxis.axisMinimum = 0f
+                chart.xAxis.axisMaximum = (windowSize - 1).toFloat()
+                val dataSet = LineDataSet(entries, "ECG").apply {
+                    color = BeatFlowColors.Primary.toArgb()
+                    setDrawCircles(false)
+                    setDrawValues(false)
+                    lineWidth = 1.5f
+                    mode = LineDataSet.Mode.LINEAR
                 }
-                if (entries.isNotEmpty()) {
-                    chart.xAxis.axisMinimum = -10f
-                    chart.xAxis.axisMaximum = windowSize.toFloat()
-                    val dataSet = LineDataSet(entries, "ECG").apply {
-                        color = BeatFlowColors.Primary.toArgb()
-                        setDrawCircles(false)
-                        setDrawValues(false)
-                        lineWidth = 1.5f
-                        mode = LineDataSet.Mode.LINEAR
-                    }
-                    chart.data = LineData(dataSet)
-                    chart.notifyDataSetChanged()
-                    chart.invalidate()
-                }
+                chart.data = LineData(dataSet)
+                chart.notifyDataSetChanged()
+                chart.invalidate()
             }
         )
     }

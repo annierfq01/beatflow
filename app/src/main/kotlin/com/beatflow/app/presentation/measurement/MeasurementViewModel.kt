@@ -43,9 +43,13 @@ class MeasurementViewModel @Inject constructor(
     private var timerJob: Job? = null
     private var ecgSaveJob: Job? = null
     private var sessionStartTime: Long = 0L
-    private val ecgDisplayBuffer = mutableListOf<Double>()
     private val ecgPersistenceBuffer = mutableListOf<Double>()
     private val pendingRecords = mutableListOf<RawRecord>()
+    private var lastHr = 60f
+    private var lastRr = 800f
+    private val hrRingBuffer = ArrayDeque<Float>()
+    private val rrRingBuffer = ArrayDeque<Float>()
+    private val ecgRingBuffer = ArrayDeque<Float>()
 
     fun startSession() {
         sessionStartTime = System.currentTimeMillis()
@@ -53,9 +57,16 @@ class MeasurementViewModel @Inject constructor(
         _hrHistory.value = emptyList()
         _rrIntervals.value = emptyList()
         _ecgBuffer.value = emptyList()
-        ecgDisplayBuffer.clear()
         ecgPersistenceBuffer.clear()
         pendingRecords.clear()
+        lastHr = 60f
+        lastRr = 800f
+        hrRingBuffer.clear()
+        rrRingBuffer.clear()
+        ecgRingBuffer.clear()
+        repeat(HR_CHART_SIZE) { hrRingBuffer.addLast(lastHr) }
+        repeat(RR_CHART_SIZE) { rrRingBuffer.addLast(lastRr) }
+        repeat(ECG_CHART_SIZE) { ecgRingBuffer.addLast(0f) }
 
         val connectedDeviceId = (polarManager.connectionState.value as? ConnectionState.Connected)?.deviceId
         if (connectedDeviceId != null) {
@@ -101,8 +112,12 @@ class MeasurementViewModel @Inject constructor(
                     val prevHistory = _hrHistory.value
                     _hrHistory.value = prevHistory + measurement
 
+                    lastHr = measurement.hr.toFloat()
                     measurement.rr.forEach { rrMs ->
+                        lastRr = rrMs.toFloat()
                         _rrIntervals.value = _rrIntervals.value + rrMs
+                        rrRingBuffer.addLast(lastRr)
+                        if (rrRingBuffer.size > RR_CHART_SIZE) rrRingBuffer.removeFirst()
                         pendingRecords.add(
                             RawRecord(
                                 timestamp = measurement.timestamp,
@@ -112,6 +127,8 @@ class MeasurementViewModel @Inject constructor(
                             )
                         )
                     }
+                    hrRingBuffer.addLast(lastHr)
+                    if (hrRingBuffer.size > HR_CHART_SIZE) hrRingBuffer.removeFirst()
 
                     if (pendingRecords.size >= 10) {
                         flushRecords()
@@ -123,12 +140,12 @@ class MeasurementViewModel @Inject constructor(
         viewModelScope.launch {
             polarManager.ecgSamples.collect { samples ->
                 if (samples.isNotEmpty()) {
-                    ecgDisplayBuffer.addAll(samples)
                     ecgPersistenceBuffer.addAll(samples)
-                    while (ecgDisplayBuffer.size > ECG_WINDOW_SIZE) {
-                        ecgDisplayBuffer.removeFirst()
+                    samples.forEach { value ->
+                        ecgRingBuffer.addLast(value.toFloat())
+                        if (ecgRingBuffer.size > ECG_CHART_SIZE) ecgRingBuffer.removeFirst()
                     }
-                    _ecgBuffer.value = ecgDisplayBuffer.toList()
+                    _ecgBuffer.value = ecgRingBuffer.toList()
                 }
             }
         }
@@ -138,6 +155,7 @@ class MeasurementViewModel @Inject constructor(
         _isRecording.value = false
         timerJob?.cancel()
         ecgSaveJob?.cancel()
+        polarManager.stopEcgStreaming()
         flushRecords()
         return _sessionId ?: -1L
     }
@@ -155,10 +173,14 @@ class MeasurementViewModel @Inject constructor(
         super.onCleared()
         timerJob?.cancel()
         ecgSaveJob?.cancel()
+        polarManager.stopEcgStreaming()
         flushRecords()
     }
 
     companion object {
+        const val HR_CHART_SIZE = 5
+        const val RR_CHART_SIZE = 5
+        const val ECG_CHART_SIZE = 650
         private const val ECG_WINDOW_SIZE = 1200
     }
 }

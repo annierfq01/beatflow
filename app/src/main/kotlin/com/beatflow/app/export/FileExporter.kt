@@ -43,26 +43,48 @@ class FileExporter @Inject constructor(
     private fun buildZipBytes(session: HrvSession): ByteArray {
         val baos = ByteArrayOutputStream()
         ZipOutputStream(baos).use { zos ->
-            val csvContent = buildCsv(session)
-            zos.putNextEntry(ZipEntry("raw_data.csv"))
-            zos.write(csvContent.toByteArray(Charsets.UTF_8))
+            zos.putNextEntry(ZipEntry("hr_data.csv"))
+            zos.write(buildHrCsv(session).toByteArray(Charsets.UTF_8))
             zos.closeEntry()
 
-            val jsonContent = buildJson(session)
+            zos.putNextEntry(ZipEntry("rr_data.csv"))
+            zos.write(buildRrCsv(session).toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+
+            zos.putNextEntry(ZipEntry("ecg_data.csv"))
+            zos.write(buildEcgCsv(session).toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+
             zos.putNextEntry(ZipEntry("session.json"))
-            zos.write(jsonContent.toByteArray(Charsets.UTF_8))
+            zos.write(buildJson(session).toByteArray(Charsets.UTF_8))
             zos.closeEntry()
         }
         return baos.toByteArray()
     }
 
-    private fun buildCsv(session: HrvSession): String {
+    private fun buildHrCsv(session: HrvSession): String {
         val sb = StringBuilder()
-        sb.appendLine("timestamp,hr,rr_ms,ecg_signal")
+        sb.appendLine("timestamp,hr")
         session.records.forEach { record ->
-            sb.appendLine(
-                "${record.timestamp},${record.hr ?: ""},${record.rr ?: ""},${record.ecgSignal ?: ""}"
-            )
+            record.hr?.let { sb.appendLine("${record.timestamp},$it") }
+        }
+        return sb.toString()
+    }
+
+    private fun buildRrCsv(session: HrvSession): String {
+        val sb = StringBuilder()
+        sb.appendLine("timestamp,rr_ms")
+        session.records.forEach { record ->
+            record.rr?.let { sb.appendLine("${record.timestamp},$it") }
+        }
+        return sb.toString()
+    }
+
+    private fun buildEcgCsv(session: HrvSession): String {
+        val sb = StringBuilder()
+        sb.appendLine("timestamp,ecg_signal")
+        session.records.forEach { record ->
+            record.ecgSignal?.let { sb.appendLine("${record.timestamp},$it") }
         }
         return sb.toString()
     }

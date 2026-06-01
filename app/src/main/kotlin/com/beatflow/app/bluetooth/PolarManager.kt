@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.location.LocationManager
 import android.os.Build
+import android.util.Log
 import com.polar.sdk.api.PolarBleApi
 import com.polar.sdk.api.PolarBleApiCallback
 import com.polar.sdk.api.PolarBleApiDefaultImpl
@@ -51,6 +52,10 @@ data class PolarDevice(
 class PolarManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    companion object {
+        private const val TAG = "PolarManager"
+    }
+
     private val api: PolarBleApi = PolarBleApiDefaultImpl.defaultImplementation(
         context,
         setOf(
@@ -142,7 +147,7 @@ class PolarManager @Inject constructor(
                                     )
                                 }
                             },
-                            { _ -> }
+                { error -> Log.e(TAG, "HR streaming error: ${error.message}", error) }
                         )
                 }
             }
@@ -321,13 +326,18 @@ class PolarManager @Inject constructor(
                 { ecgData ->
                     _ecgSamples.value = ecgData.samples.map { (it as com.polar.sdk.api.model.FecgSample).ecg.toDouble() }
                 },
-                { _ -> }
+                { error -> Log.e(TAG, "ECG streaming error: ${error.message}", error) }
             )
     }
 
     fun startEcgStreaming() {
         val deviceId = lastConnectedDeviceId ?: return
         startEcgStreaming(deviceId)
+    }
+
+    fun stopEcgStreaming() {
+        ecgDisposable?.dispose()
+        ecgDisposable = null
     }
 
     fun cleanup() {

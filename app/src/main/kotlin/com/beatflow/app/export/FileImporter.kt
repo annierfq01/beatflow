@@ -38,14 +38,18 @@ class FileImporter @Inject constructor() {
         val zipBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             ?: throw IllegalStateException("No se pudo leer el archivo")
 
-        var csvContent: String? = null
+        var hrCsv: String? = null
+        var rrCsv: String? = null
+        var ecgCsv: String? = null
         var jsonContent: String? = null
 
         ZipInputStream(zipBytes.inputStream()).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
                 when (entry.name) {
-                    "raw_data.csv" -> csvContent = zis.bufferedReader().use { it.readText() }
+                    "hr_data.csv" -> hrCsv = zis.bufferedReader().use { it.readText() }
+                    "rr_data.csv" -> rrCsv = zis.bufferedReader().use { it.readText() }
+                    "ecg_data.csv" -> ecgCsv = zis.bufferedReader().use { it.readText() }
                     "session.json" -> jsonContent = zis.bufferedReader().use { it.readText() }
                 }
                 zis.closeEntry()
@@ -53,13 +57,12 @@ class FileImporter @Inject constructor() {
             }
         }
 
-        val csv = csvContent ?: throw IllegalStateException("No se encontró raw_data.csv en el archivo")
         val sesJson = jsonContent ?: throw IllegalStateException("No se encontró session.json en el archivo")
 
-        parseSession(csv, sesJson)
+        parseSession(hrCsv, rrCsv, ecgCsv, sesJson)
     }
 
-    private fun parseSession(csvContent: String, jsonContent: String): ImportedSession {
+    private fun parseSession(hrCsv: String?, rrCsv: String?, ecgCsv: String?, jsonContent: String): ImportedSession {
         val root = json.parseToJsonElement(jsonContent).jsonObject
 
         val patientObj = root["patient"]?.jsonObject
@@ -87,7 +90,7 @@ class FileImporter @Inject constructor() {
 
         val metrics = metricsObj?.let { parseMetrics(it) }
 
-        val records = parseCsv(csvContent)
+        val records = parseCsvs(hrCsv, rrCsv, ecgCsv)
 
         return ImportedSession(
             patientData = patientData,
@@ -136,16 +139,23 @@ class FileImporter @Inject constructor() {
         sd1 = 0.0, sd2 = 0.0, sd1Sd2Ratio = 0.0
     )
 
-    private fun parseCsv(csv: String): List<RawRecord> {
+    private fun parseCsv(header: String, csv: String): List<RawRecord> {
         val lines = csv.lines().drop(1).filter { it.isNotBlank() }
         return lines.map { line ->
             val parts = line.split(",")
             RawRecord(
                 timestamp = parts.getOrNull(0)?.toLongOrNull() ?: 0L,
-                hr = parts.getOrNull(1)?.toDoubleOrNull()?.toInt(),
-                rr = parts.getOrNull(2)?.toDoubleOrNull(),
-                ecgSignal = parts.getOrNull(3)?.toDoubleOrNull()
+                hr = if (header == "hr") parts.getOrNull(1)?.toDoubleOrNull()?.toInt() else null,
+                rr = if (header == "rr") parts.getOrNull(1)?.toDoubleOrNull() else null,
+                ecgSignal = if (header == "ecg") parts.getOrNull(1)?.toDoubleOrNull() else null
             )
         }
+    }
+
+    private fun parseCsvs(hrCsv: String?, rrCsv: String?, ecgCsv: String?): List<RawRecord> {
+        val hrRecords = hrCsv?.let { parseCsv("hr", it) } ?: emptyList()
+        val rrRecords = rrCsv?.let { parseCsv("rr", it) } ?: emptyList()
+        val ecgRecords = ecgCsv?.let { parseCsv("ecg", it) } ?: emptyList()
+        return (hrRecords + rrRecords + ecgRecords).sortedBy { it.timestamp }
     }
 }
