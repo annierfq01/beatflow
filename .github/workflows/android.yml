@@ -23,7 +23,28 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          ANDROID_SDK_ROOT="${ANDROID_HOME:-$HOME/android-sdk}"
+          SDK_MANAGER_VERSION="12266719"
+          CMDLINE_TOOLS_DIR="${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+
+          if [ -f "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" ]; then
+            echo "sdkmanager already installed"
+          else
+            mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+            cd "${ANDROID_SDK_ROOT}/cmdline-tools"
+            curl -sL "https://dl.google.com/android/repository/commandlinetools-linux-${SDK_MANAGER_VERSION}_latest.zip" -o cmdline-tools.zip
+            unzip -q cmdline-tools.zip
+            mv cmdline-tools latest 2>/dev/null || true
+            rm -f cmdline-tools.zip
+          fi
+
+          yes | "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses > /dev/null 2>&1 || true
+          "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "platform-tools" \
+            > /dev/null 2>&1
 
       - name: Download gradle-wrapper.jar
         run: |
