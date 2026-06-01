@@ -307,6 +307,7 @@ private fun TimerCard(durationMs: Long) {
 
 @Composable
 private fun HrChart(hrBuffer: List<Float>) {
+    val visibleRange = MeasurementViewModel.HR_VISIBLE_RANGE
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -319,38 +320,44 @@ private fun HrChart(hrBuffer: List<Float>) {
                 LineChart(ctx).apply {
                     description.isEnabled = false
                     legend.isEnabled = false
-                    setScaleEnabled(false)
-                    setPinchZoom(false)
+                    setScaleYEnabled(true)
+                    setScaleXEnabled(false)
+                    setPinchZoom(true)
+                    setDragEnabled(true)
+                    setVisibleXRangeMaximum(visibleRange.toFloat())
                     setDrawGridBackground(false)
-                    xAxis.isEnabled = false
+                    xAxis.apply {
+                        setDrawGridLines(true)
+                        gridColor = BeatFlowColors.ChartGrid.toArgb()
+                        textColor = android.graphics.Color.GRAY
+                        setDrawLabels(true)
+                        setLabelCount(5, true)
+                    }
                     axisLeft.apply {
                         axisMinimum = 0f
                         axisMaximum = 250f
                         setDrawGridLines(true)
                         gridColor = BeatFlowColors.ChartGrid.toArgb()
                         textColor = android.graphics.Color.GRAY
-                        setDrawLabels(true)
                     }
                     axisRight.isEnabled = false
-                    setTouchEnabled(false)
                 }
             },
             update = { chart ->
                 val entries = hrBuffer.mapIndexed { i, v -> Entry(i.toFloat(), v) }
-                chart.xAxis.axisMinimum = 0f
-                chart.xAxis.axisMaximum = (hrBuffer.size - 1).coerceAtLeast(0).toFloat()
                 val dataSet = LineDataSet(entries, "HR").apply {
                     color = BeatFlowColors.ChartLine.toArgb()
-                    setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                    circleRadius = 3f
+                    setDrawCircles(false)
                     setDrawValues(false)
-                    lineWidth = 3f
+                    lineWidth = 2f
                     mode = LineDataSet.Mode.LINEAR
                     setDrawFilled(true)
                     fillColor = BeatFlowColors.ChartLine.toArgb()
                     fillAlpha = 25
                 }
                 chart.data = LineData(dataSet)
+                chart.setVisibleXRangeMaximum(visibleRange.toFloat())
+                chart.moveViewToX(hrBuffer.size.toFloat())
                 chart.notifyDataSetChanged()
                 chart.invalidate()
             }
@@ -360,6 +367,7 @@ private fun HrChart(hrBuffer: List<Float>) {
 
 @Composable
 private fun RrChart(rrBuffer: List<Float>) {
+    val visibleRange = MeasurementViewModel.RR_VISIBLE_RANGE
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -372,38 +380,44 @@ private fun RrChart(rrBuffer: List<Float>) {
                 LineChart(ctx).apply {
                     description.isEnabled = false
                     legend.isEnabled = false
-                    setScaleEnabled(false)
-                    setPinchZoom(false)
+                    setScaleYEnabled(true)
+                    setScaleXEnabled(false)
+                    setPinchZoom(true)
+                    setDragEnabled(true)
+                    setVisibleXRangeMaximum(visibleRange.toFloat())
                     setDrawGridBackground(false)
-                    xAxis.isEnabled = false
+                    xAxis.apply {
+                        setDrawGridLines(true)
+                        gridColor = BeatFlowColors.ChartGrid.toArgb()
+                        textColor = android.graphics.Color.GRAY
+                        setDrawLabels(true)
+                        setLabelCount(5, true)
+                    }
                     axisLeft.apply {
                         axisMinimum = 0f
                         axisMaximum = 2000f
                         setDrawGridLines(true)
                         gridColor = BeatFlowColors.ChartGrid.toArgb()
                         textColor = android.graphics.Color.GRAY
-                        setDrawLabels(true)
                     }
                     axisRight.isEnabled = false
-                    setTouchEnabled(false)
                 }
             },
             update = { chart ->
                 val entries = rrBuffer.mapIndexed { i, v -> Entry(i.toFloat(), v) }
-                chart.xAxis.axisMinimum = 0f
-                chart.xAxis.axisMaximum = (rrBuffer.size - 1).coerceAtLeast(0).toFloat()
                 val dataSet = LineDataSet(entries, "RR").apply {
                     color = BeatFlowColors.ChartLine.toArgb()
-                    setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                    circleRadius = 3f
+                    setDrawCircles(false)
                     setDrawValues(false)
-                    lineWidth = 3f
+                    lineWidth = 2f
                     mode = LineDataSet.Mode.LINEAR
                     setDrawFilled(true)
                     fillColor = BeatFlowColors.ChartLine.toArgb()
                     fillAlpha = 25
                 }
                 chart.data = LineData(dataSet)
+                chart.setVisibleXRangeMaximum(visibleRange.toFloat())
+                chart.moveViewToX(rrBuffer.size.toFloat())
                 chart.notifyDataSetChanged()
                 chart.invalidate()
             }
@@ -413,6 +427,7 @@ private fun RrChart(rrBuffer: List<Float>) {
 
 @Composable
 private fun EcgChart(ecgSamples: List<Double>) {
+    val visibleRange = MeasurementViewModel.ECG_VISIBLE_RANGE
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -425,8 +440,11 @@ private fun EcgChart(ecgSamples: List<Double>) {
                 LineChart(ctx).apply {
                     description.isEnabled = false
                     legend.isEnabled = false
-                    setScaleEnabled(false)
-                    setPinchZoom(false)
+                    setScaleYEnabled(true)
+                    setScaleXEnabled(false)
+                    setPinchZoom(true)
+                    setDragEnabled(true)
+                    setVisibleXRangeMaximum(visibleRange.toFloat())
                     setDrawGridBackground(false)
                     xAxis.apply {
                         setDrawGridLines(true)
@@ -446,24 +464,19 @@ private fun EcgChart(ecgSamples: List<Double>) {
                 }
             },
             update = { chart ->
-                val windowSize = MeasurementViewModel.ECG_CHART_SIZE
-                val data = ecgSamples.takeLast(windowSize)
-                if (data.isNotEmpty()) {
-                    val values = data.map { it.toFloat() }
-                    val entries = values.mapIndexed { i, v -> Entry(i.toFloat(), v) }
-                    chart.xAxis.axisMinimum = 0f
-                    chart.xAxis.axisMaximum = (windowSize - 1).toFloat()
-                    val dataSet = LineDataSet(entries, "ECG").apply {
-                        color = BeatFlowColors.Primary.toArgb()
-                        setDrawCircles(false)
-                        setDrawValues(false)
-                        lineWidth = 1.5f
-                        mode = LineDataSet.Mode.LINEAR
-                    }
-                    chart.data = LineData(dataSet)
-                    chart.notifyDataSetChanged()
-                    chart.invalidate()
+                val entries = ecgSamples.mapIndexed { i, v -> Entry(i.toFloat(), v.toFloat()) }
+                val dataSet = LineDataSet(entries, "ECG").apply {
+                    color = BeatFlowColors.Primary.toArgb()
+                    setDrawCircles(false)
+                    setDrawValues(false)
+                    lineWidth = 1.5f
+                    mode = LineDataSet.Mode.LINEAR
                 }
+                chart.data = LineData(dataSet)
+                chart.setVisibleXRangeMaximum(visibleRange.toFloat())
+                chart.moveViewToX(ecgSamples.size.toFloat())
+                chart.notifyDataSetChanged()
+                chart.invalidate()
             }
         )
     }

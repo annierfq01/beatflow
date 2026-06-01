@@ -70,9 +70,9 @@ class MeasurementViewModel @Inject constructor(
         hrRingBuffer.clear()
         rrRingBuffer.clear()
         ecgRingBuffer.clear()
-        repeat(HR_CHART_SIZE) { hrRingBuffer.addLast(lastHr) }
-        repeat(RR_CHART_SIZE) { rrRingBuffer.addLast(lastRr) }
-        repeat(ECG_CHART_SIZE) { ecgRingBuffer.addLast(0f) }
+        repeat(HR_BUFFER_SIZE) { hrRingBuffer.addLast(lastHr) }
+        repeat(RR_BUFFER_SIZE) { rrRingBuffer.addLast(lastRr) }
+        repeat(ECG_BUFFER_SIZE) { ecgRingBuffer.addLast(0f) }
 
         val connectedDeviceId = (polarManager.connectionState.value as? ConnectionState.Connected)?.deviceId
         if (connectedDeviceId != null) {
@@ -123,7 +123,7 @@ class MeasurementViewModel @Inject constructor(
                         lastRr = rrMs.toFloat()
                         _rrIntervals.value = _rrIntervals.value + rrMs
                         rrRingBuffer.addLast(lastRr)
-                        if (rrRingBuffer.size > RR_CHART_SIZE) rrRingBuffer.removeFirst()
+                        if (rrRingBuffer.size > RR_BUFFER_SIZE) rrRingBuffer.removeFirst()
                         pendingRecords.add(
                             RawRecord(
                                 timestamp = measurement.timestamp,
@@ -135,7 +135,7 @@ class MeasurementViewModel @Inject constructor(
                     }
                     _rrBuffer.value = rrRingBuffer.toList()
                     hrRingBuffer.addLast(lastHr)
-                    if (hrRingBuffer.size > HR_CHART_SIZE) hrRingBuffer.removeFirst()
+                    if (hrRingBuffer.size > HR_BUFFER_SIZE) hrRingBuffer.removeFirst()
                     _hrBuffer.value = hrRingBuffer.toList()
 
                     if (pendingRecords.size >= 10) {
@@ -151,7 +151,7 @@ class MeasurementViewModel @Inject constructor(
                     ecgPersistenceBuffer.addAll(samples)
                     samples.forEach { value ->
                         ecgRingBuffer.addLast(value.toFloat())
-                        if (ecgRingBuffer.size > ECG_CHART_SIZE) ecgRingBuffer.removeFirst()
+                        if (ecgRingBuffer.size > ECG_BUFFER_SIZE) ecgRingBuffer.removeFirst()
                     }
                     _ecgBuffer.value = ecgRingBuffer.map { it.toDouble() }
                 }
@@ -186,9 +186,11 @@ class MeasurementViewModel @Inject constructor(
     }
 
     companion object {
-        const val HR_CHART_SIZE = 5
-        const val RR_CHART_SIZE = 5
-        const val ECG_CHART_SIZE = 650
-        private const val ECG_WINDOW_SIZE = 1200
+        const val HR_BUFFER_SIZE = 300
+        const val RR_BUFFER_SIZE = 300
+        const val ECG_BUFFER_SIZE = 650
+        const val HR_VISIBLE_RANGE = 15
+        const val RR_VISIBLE_RANGE = 5
+        const val ECG_VISIBLE_RANGE = 650
     }
 }
