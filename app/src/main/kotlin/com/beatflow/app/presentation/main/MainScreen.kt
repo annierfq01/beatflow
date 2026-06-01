@@ -305,52 +305,54 @@ fun MainScreen(
                         Text("Buscar de nuevo")
                     }
                 }
-            Spacer(modifier = Modifier.height(8.dp))
-
-            var showAboutDialog by remember { mutableStateOf(false) }
-
-            TextButton(
-                onClick = { showAboutDialog = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Acerca de",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
-                )
             }
+        )
+    }
 
-            if (showAboutDialog) {
-                AlertDialog(
-                    onDismissRequest = { showAboutDialog = false },
-                    title = { Text("BeatFlow") },
-                    text = {
-                        Column {
-                            Text("Desarrollado por:")
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "Annier Jesús Fajardo Quesada",
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "annierfq01@gmail.com",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                "Aplicación para medición de HRV con sensor Polar H10.",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { showAboutDialog = false }) { Text("CERRAR") }
-                    }
-                )
+    Spacer(modifier = Modifier.height(8.dp))
+
+    var showAboutDialog by remember { mutableStateOf(false) }
+
+    TextButton(
+        onClick = { showAboutDialog = true },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = "Acerca de",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp
+        )
+    }
+
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = { Text("BeatFlow") },
+            text = {
+                Column {
+                    Text("Desarrollado por:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Annier Jesús Fajardo Quesada",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "annierfq01@gmail.com",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Aplicación para medición de HRV con sensor Polar H10.",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAboutDialog = false }) { Text("CERRAR") }
             }
-        }
+        )
     }
 
     if (showBtDialog) {

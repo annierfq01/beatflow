@@ -1,0 +1,31 @@
+﻿2026-06-01T19:20:40.3625111Z ##[group]Run actions/cache@v4
+2026-06-01T19:20:40.3625341Z with:
+2026-06-01T19:20:40.3625527Z   path: ~/.gradle/caches
+~/.gradle/wrapper
+
+2026-06-01T19:20:40.3625896Z   key: Linux-gradle-8f1605d79531ca964cca36750f4c2fd7dea981af568a4ab84d96bdcc29ff9064
+2026-06-01T19:20:40.3626249Z   restore-keys: Linux-gradle-
+
+2026-06-01T19:20:40.3626457Z   enableCrossOsArchive: false
+2026-06-01T19:20:40.3626654Z   fail-on-cache-miss: false
+2026-06-01T19:20:40.3626845Z   lookup-only: false
+2026-06-01T19:20:40.3627035Z   save-always: false
+2026-06-01T19:20:40.3627197Z env:
+2026-06-01T19:20:40.3627432Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.19-10/x64
+2026-06-01T19:20:40.3627829Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.19-10/x64
+2026-06-01T19:20:40.3628139Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-06-01T19:20:40.3628371Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-06-01T19:20:40.3628592Z ##[endgroup]
+2026-06-01T19:20:40.7299987Z Cache hit for: Linux-gradle-8f1605d79531ca964cca36750f4c2fd7dea981af568a4ab84d96bdcc29ff9064
+2026-06-01T19:20:41.9347567Z Received 100663296 of 804399936 (12.5%), 96.0 MBs/sec
+2026-06-01T19:20:42.9348029Z Received 234881024 of 804399936 (29.2%), 112.0 MBs/sec
+2026-06-01T19:20:43.9383249Z Received 381681664 of 804399936 (47.4%), 121.3 MBs/sec
+2026-06-01T19:20:44.9366651Z Received 528482304 of 804399936 (65.7%), 125.9 MBs/sec
+2026-06-01T19:20:45.9365698Z Received 536870912 of 804399936 (66.7%), 102.4 MBs/sec
+2026-06-01T19:20:46.9403229Z Received 662700032 of 804399936 (82.4%), 105.3 MBs/sec
+2026-06-01T19:20:47.9430530Z Received 759169024 of 804399936 (94.4%), 103.4 MBs/sec
+2026-06-01T19:20:48.4014935Z Received 804399936 of 804399936 (100.0%), 102.7 MBs/sec
+2026-06-01T19:20:48.4017361Z Cache Size: ~767 MB (804399936 B)
+2026-06-01T19:20:48.4073783Z [command]/usr/bin/tar -xf /home/runner/work/_temp/fb78d5a5-6f84-474a-83a0-e7e6c56c0ba3/cache.tzst -P -C /home/runner/work/beatflow/beatflow --use-compress-program unzstd
+2026-06-01T19:20:51.4365469Z Cache restored successfully
+2026-06-01T19:20:51.4775752Z Cache restored from key: Linux-gradle-8f1605d79531ca964cca36750f4c2fd7dea981af568a4ab84d96bdcc29ff9064

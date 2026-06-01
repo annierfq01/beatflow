@@ -178,10 +178,18 @@ class PolarManager @Inject constructor(
                         )
                         _isBluetoothEnabled.value = state == BluetoothAdapter.STATE_ON
                     }
+                    LocationManager.PROVIDERS_CHANGED_ACTION -> {
+                        updateLocationState()
+                    }
                 }
             }
         }
-        context.registerReceiver(btReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+        val btFilter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
+        context.registerReceiver(btReceiver, btFilter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val locationFilter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
+            context.registerReceiver(btReceiver, locationFilter)
+        }
 
         updateLocationState()
     }
@@ -219,6 +227,11 @@ class PolarManager @Inject constructor(
 
     fun startScanning(): Flow<PolarDevice> = callbackFlow {
         if (bluetoothAdapter?.isEnabled != true) {
+            close()
+            return@callbackFlow
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !_isLocationEnabled.value) {
             close()
             return@callbackFlow
         }

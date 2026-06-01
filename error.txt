@@ -1,2 +1,0 @@
-warning: in the working copy of 'app/src/main/kotlin/com/beatflow/app/bluetooth/PolarManager.kt', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'app/src/main/kotlin/com/beatflow/app/export/FileExporter.kt', LF will be replaced by CRLF the next time Git touches it

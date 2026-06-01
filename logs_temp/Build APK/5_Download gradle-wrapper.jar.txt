@@ -1,0 +1,37 @@
+﻿2026-06-01T19:20:40.0815548Z ##[group]Run WRAPPER_JAR="gradle/wrapper/gradle-wrapper.jar"
+2026-06-01T19:20:40.0816008Z [36;1mWRAPPER_JAR="gradle/wrapper/gradle-wrapper.jar"[0m
+2026-06-01T19:20:40.0816296Z [36;1mWRAPPER_VERSION="8.9"[0m
+2026-06-01T19:20:40.0816510Z [36;1mcurl -sL \[0m
+2026-06-01T19:20:40.0816909Z [36;1m  "https://raw.githubusercontent.com/gradle/gradle/v${WRAPPER_VERSION}.0/gradle/wrapper/gradle-wrapper.jar" \[0m
+2026-06-01T19:20:40.0817364Z [36;1m  -o "${WRAPPER_JAR}" || true[0m
+2026-06-01T19:20:40.0817592Z [36;1mif [ ! -s "${WRAPPER_JAR}" ]; then[0m
+2026-06-01T19:20:40.0817961Z [36;1m  curl -sL "https://services.gradle.org/distributions/gradle-${WRAPPER_VERSION}-bin.zip" \[0m
+2026-06-01T19:20:40.0818328Z [36;1m    -o /tmp/gradle-dist.zip[0m
+2026-06-01T19:20:40.0818549Z [36;1m  unzip -j /tmp/gradle-dist.zip \[0m
+2026-06-01T19:20:40.0818891Z [36;1m    "gradle-${WRAPPER_VERSION}/lib/plugins/gradle-wrapper-${WRAPPER_VERSION}.jar" \[0m
+2026-06-01T19:20:40.0819224Z [36;1m    -d /tmp/ 2>/dev/null || true[0m
+2026-06-01T19:20:40.0819693Z [36;1m  if [ ! -s "/tmp/gradle-wrapper-${WRAPPER_VERSION}.jar" ]; then[0m
+2026-06-01T19:20:40.0819985Z [36;1m    unzip -j /tmp/gradle-dist.zip \[0m
+2026-06-01T19:20:40.0820303Z [36;1m      "gradle-${WRAPPER_VERSION}/lib/gradle-wrapper-${WRAPPER_VERSION}.jar" \[0m
+2026-06-01T19:20:40.0820626Z [36;1m      -d /tmp/ 2>/dev/null || true[0m
+2026-06-01T19:20:40.0820832Z [36;1m  fi[0m
+2026-06-01T19:20:40.0821042Z [36;1m  if [ ! -s "/tmp/gradle-wrapper-${WRAPPER_VERSION}.jar" ]; then[0m
+2026-06-01T19:20:40.0821434Z [36;1m    unzip -l /tmp/gradle-dist.zip | grep "gradle-wrapper" | awk '{print $4}' | head -1 | \[0m
+2026-06-01T19:20:40.0822071Z [36;1m      xargs -I{} unzip -j /tmp/gradle-dist.zip {} -d /tmp/ 2>/dev/null || true[0m
+2026-06-01T19:20:40.0822368Z [36;1m  fi[0m
+2026-06-01T19:20:40.0822606Z [36;1m  cp /tmp/gradle-wrapper*.jar "${WRAPPER_JAR}" 2>/dev/null || true[0m
+2026-06-01T19:20:40.0822882Z [36;1mfi[0m
+2026-06-01T19:20:40.0823077Z [36;1mif file "${WRAPPER_JAR}" | grep -q "Zip"; then[0m
+2026-06-01T19:20:40.0823436Z [36;1m  echo "✓ gradle-wrapper.jar is valid ($(du -h ${WRAPPER_JAR} | cut -f1))"[0m
+2026-06-01T19:20:40.0823755Z [36;1melse[0m
+2026-06-01T19:20:40.0823939Z [36;1m  echo "✗ gradle-wrapper.jar invalid"[0m
+2026-06-01T19:20:40.0824177Z [36;1m  exit 1[0m
+2026-06-01T19:20:40.0824331Z [36;1mfi[0m
+2026-06-01T19:20:40.0849229Z shell: /usr/bin/bash -e {0}
+2026-06-01T19:20:40.0849443Z env:
+2026-06-01T19:20:40.0849696Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.19-10/x64
+2026-06-01T19:20:40.0850100Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.19-10/x64
+2026-06-01T19:20:40.0850416Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-06-01T19:20:40.0850650Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-06-01T19:20:40.0850866Z ##[endgroup]
+2026-06-01T19:20:40.2724791Z ✓ gradle-wrapper.jar is valid (44K)
