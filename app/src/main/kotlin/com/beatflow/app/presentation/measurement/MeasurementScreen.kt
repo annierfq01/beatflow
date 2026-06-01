@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -24,6 +25,12 @@ import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
+
+enum class ChartType(val label: String) {
+    ECG("ECG"),
+    HR("Frecuencia Cardíaca"),
+    RR("Intervalos RR")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,13 +47,14 @@ fun MeasurementScreen(
 
     var showStopConfirm by remember { mutableStateOf(false) }
     var stopAction by remember { mutableStateOf<String?>(null) }
+    var selectedChart by remember { mutableStateOf(ChartType.ECG) }
 
     LaunchedEffect(Unit) {
         viewModel.startSession()
     }
 
     Scaffold(
-            topBar = {
+        topBar = {
             TopAppBar(
                 title = { Text("Medición en curso") },
                 navigationIcon = {
@@ -67,27 +75,31 @@ fun MeasurementScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             TimerCard(sessionDuration)
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            HrChart(hrHistory)
+            ChartSelector(selectedChart) { selectedChart = it }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            if (ecgBuffer.isNotEmpty()) {
-                EcgChart(ecgBuffer)
-                Spacer(modifier = Modifier.height(12.dp))
+            Box(modifier = Modifier.weight(1f)) {
+                when (selectedChart) {
+                    ChartType.ECG -> EcgChart(ecgBuffer)
+                    ChartType.HR -> HrChart(hrHistory)
+                    ChartType.RR -> RrChart(rrIntervals)
+                }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (hrHistory.isNotEmpty()) {
                 val last = hrHistory.last()
                 HrValueCard(hr = last.hr, rr = last.rr.lastOrNull())
+                Spacer(modifier = Modifier.height(8.dp))
             }
-
-            Spacer(modifier = Modifier.weight(1f))
 
             Button(
                 onClick = {
@@ -96,7 +108,7 @@ fun MeasurementScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
+                    .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = BeatFlowColors.HeartRed
@@ -106,7 +118,7 @@ fun MeasurementScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "DETENER",
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
@@ -149,6 +161,33 @@ fun MeasurementScreen(
 }
 
 @Composable
+private fun ChartSelector(selected: ChartType, onSelect: (ChartType) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ChartType.entries.forEach { type ->
+            FilterChip(
+                selected = selected == type,
+                onClick = { onSelect(type) },
+                label = { Text(type.label, fontSize = 13.sp) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = when (type) {
+                            ChartType.ECG -> Icons.Default.ShowChart
+                            ChartType.HR -> Icons.Default.Favorite
+                            ChartType.RR -> Icons.Default.Accessibility
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
 private fun TimerCard(durationMs: Long) {
     val seconds = durationMs / 1000
     val minutes = seconds / 60
@@ -160,23 +199,19 @@ private fun TimerCard(durationMs: Long) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "%02d:%02d:%02d".format(hours, mins, secs),
-                fontSize = 48.sp,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
                 color = BeatFlowColors.HeartRed
-            )
-            Text(
-                text = "Tiempo de grabación",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -187,17 +222,17 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp),
+            .fillMaxHeight(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
-            factory = { context ->
-                LineChart(context).apply {
+            factory = { ctx ->
+                LineChart(ctx).apply {
                     description.isEnabled = false
                     legend.isEnabled = false
-                    setScaleEnabled(false)
-                    setPinchZoom(false)
+                    setScaleEnabled(true)
+                    setPinchZoom(true)
                     setDrawGridBackground(false)
                     xAxis.isEnabled = false
                     axisLeft.apply {
@@ -207,7 +242,7 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                         setDrawLabels(true)
                     }
                     axisRight.isEnabled = false
-                    setTouchEnabled(false)
+                    setTouchEnabled(true)
 
                     val entries = hrHistory.mapIndexed { index, hr ->
                         Entry(index.toFloat(), hr.hr.toFloat())
@@ -216,13 +251,13 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                         val dataSet = LineDataSet(entries, "HR").apply {
                             color = BeatFlowColors.ChartLine.toArgb()
                             setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                            circleRadius = 2f
+                            circleRadius = 1.5f
                             setDrawValues(false)
                             lineWidth = 2f
                             mode = LineDataSet.Mode.LINEAR
                             setDrawFilled(true)
                             fillColor = BeatFlowColors.ChartLine.toArgb()
-                            fillAlpha = 30
+                            fillAlpha = 25
                         }
                         data = LineData(dataSet)
                         notifyDataSetChanged()
@@ -238,13 +273,87 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                     val dataSet = LineDataSet(entries, "HR").apply {
                         color = BeatFlowColors.ChartLine.toArgb()
                         setCircleColor(BeatFlowColors.ChartLine.toArgb())
+                        circleRadius = 1.5f
+                        setDrawValues(false)
+                        lineWidth = 2f
+                        mode = LineDataSet.Mode.LINEAR
+                        setDrawFilled(true)
+                        fillColor = BeatFlowColors.ChartLine.toArgb()
+                        fillAlpha = 25
+                    }
+                    chart.data = LineData(dataSet)
+                    chart.notifyDataSetChanged()
+                    chart.invalidate()
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun RrChart(rrIntervals: List<Double>) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                LineChart(ctx).apply {
+                    description.isEnabled = false
+                    legend.isEnabled = false
+                    setScaleEnabled(true)
+                    setPinchZoom(true)
+                    setDrawGridBackground(false)
+                    xAxis.isEnabled = false
+                    axisLeft.apply {
+                        setDrawGridLines(true)
+                        gridColor = BeatFlowColors.ChartGrid.toArgb()
+                        textColor = android.graphics.Color.GRAY
+                        setDrawLabels(true)
+                    }
+                    axisRight.isEnabled = false
+                    setTouchEnabled(true)
+                    setAutoScaleMinMaxEnabled(true)
+
+                    val entries = rrIntervals.mapIndexed { index, rr ->
+                        Entry(index.toFloat(), rr.toFloat())
+                    }
+                    if (entries.isNotEmpty()) {
+                        val dataSet = LineDataSet(entries, "RR").apply {
+                            color = BeatFlowColors.ChartLine.toArgb()
+                            setCircleColor(BeatFlowColors.ChartLine.toArgb())
+                            circleRadius = 2f
+                            setDrawValues(false)
+                            lineWidth = 2f
+                            mode = LineDataSet.Mode.LINEAR
+                            setDrawFilled(true)
+                            fillColor = BeatFlowColors.ChartLine.toArgb()
+                            fillAlpha = 25
+                        }
+                        data = LineData(dataSet)
+                        notifyDataSetChanged()
+                        invalidate()
+                    }
+                }
+            },
+            update = { chart ->
+                val entries = rrIntervals.mapIndexed { index, rr ->
+                    Entry(index.toFloat(), rr.toFloat())
+                }
+                if (entries.isNotEmpty()) {
+                    val dataSet = LineDataSet(entries, "RR").apply {
+                        color = BeatFlowColors.ChartLine.toArgb()
+                        setCircleColor(BeatFlowColors.ChartLine.toArgb())
                         circleRadius = 2f
                         setDrawValues(false)
                         lineWidth = 2f
                         mode = LineDataSet.Mode.LINEAR
                         setDrawFilled(true)
                         fillColor = BeatFlowColors.ChartLine.toArgb()
-                        fillAlpha = 30
+                        fillAlpha = 25
                     }
                     chart.data = LineData(dataSet)
                     chart.notifyDataSetChanged()
@@ -260,26 +369,35 @@ private fun EcgChart(ecgSamples: List<Double>) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp),
+            .fillMaxHeight(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
-            factory = { context ->
-                LineChart(context).apply {
+            factory = { ctx ->
+                LineChart(ctx).apply {
                     description.isEnabled = false
                     legend.isEnabled = false
-                    setScaleEnabled(false)
-                    setPinchZoom(false)
+                    setScaleEnabled(true)
+                    setPinchZoom(true)
                     setDrawGridBackground(false)
-                    xAxis.isEnabled = false
+                    setAutoScaleMinMaxEnabled(true)
+                    xAxis.apply {
+                        setDrawGridLines(true)
+                        gridColor = BeatFlowColors.ChartGrid.toArgb()
+                        textColor = android.graphics.Color.GRAY
+                        setDrawLabels(true)
+                        setLabelCount(5, true)
+                    }
                     axisLeft.apply {
-                        setDrawGridLines(false)
-                        isEnabled = false
+                        setDrawGridLines(true)
+                        gridColor = BeatFlowColors.ChartGrid.toArgb()
+                        textColor = android.graphics.Color.GRAY
+                        setDrawLabels(true)
+                        setLabelCount(4, true)
                     }
                     axisRight.isEnabled = false
-                    setTouchEnabled(false)
-                    setAutoScaleMinMaxEnabled(true)
+                    setTouchEnabled(true)
 
                     val entries = ecgSamples.mapIndexed { index, value ->
                         Entry(index.toFloat(), value.toFloat())
@@ -287,14 +405,12 @@ private fun EcgChart(ecgSamples: List<Double>) {
                     if (entries.isNotEmpty()) {
                         val dataSet = LineDataSet(entries, "ECG").apply {
                             color = android.graphics.Color.GREEN
-                            setCircleColor(android.graphics.Color.GREEN)
-                            circleRadius = 1f
+                            setDrawCircles(false)
                             setDrawValues(false)
-                            lineWidth = 1.5f
+                            lineWidth = 1.2f
                             mode = LineDataSet.Mode.LINEAR
-                            setDrawFilled(true)
-                            fillColor = android.graphics.Color.GREEN
-                            fillAlpha = 20
+                            setDrawFilled(false)
+                            setHighlightEnabled(false)
                         }
                         data = LineData(dataSet)
                         notifyDataSetChanged()
@@ -309,14 +425,12 @@ private fun EcgChart(ecgSamples: List<Double>) {
                 if (entries.isNotEmpty()) {
                     val dataSet = LineDataSet(entries, "ECG").apply {
                         color = android.graphics.Color.GREEN
-                        setCircleColor(android.graphics.Color.GREEN)
-                        circleRadius = 1f
+                        setDrawCircles(false)
                         setDrawValues(false)
-                        lineWidth = 1.5f
+                        lineWidth = 1.2f
                         mode = LineDataSet.Mode.LINEAR
-                        setDrawFilled(true)
-                        fillColor = android.graphics.Color.GREEN
-                        fillAlpha = 20
+                        setDrawFilled(false)
+                        setHighlightEnabled(false)
                     }
                     chart.data = LineData(dataSet)
                     chart.notifyDataSetChanged()
@@ -336,7 +450,7 @@ private fun HrValueCard(hr: Int, rr: Double?) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -344,11 +458,11 @@ private fun HrValueCard(hr: Int, rr: Double?) {
                     Icons.Default.Favorite,
                     contentDescription = null,
                     tint = BeatFlowColors.HeartRed,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 )
                 Text(
                     text = "$hr",
-                    fontSize = 28.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = BeatFlowColors.HeartRed
                 )
@@ -362,7 +476,7 @@ private fun HrValueCard(hr: Int, rr: Double?) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "%.0f".format(rr),
-                        fontSize = 28.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(

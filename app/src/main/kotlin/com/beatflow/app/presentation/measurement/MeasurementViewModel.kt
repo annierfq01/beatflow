@@ -152,6 +152,6 @@ class MeasurementViewModel @Inject constructor(
     }
 
     companion object {
-        private const val ECG_WINDOW_SIZE = 800
+        private const val ECG_WINDOW_SIZE = 1200
     }
 }
