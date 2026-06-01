@@ -2,6 +2,7 @@ package com.beatflow.app.presentation.measurement
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.beatflow.app.bluetooth.ConnectionState
 import com.beatflow.app.bluetooth.HrMeasurement
 import com.beatflow.app.bluetooth.PolarManager
 import com.beatflow.app.data.repository.SessionRepository
@@ -55,7 +56,11 @@ class MeasurementViewModel @Inject constructor(
         ecgDisplayBuffer.clear()
         ecgPersistenceBuffer.clear()
         pendingRecords.clear()
-        polarManager.startEcgStreaming()
+
+        val connectedDeviceId = (polarManager.connectionState.value as? ConnectionState.Connected)?.deviceId
+        if (connectedDeviceId != null) {
+            polarManager.startEcgStreaming(connectedDeviceId)
+        }
 
         viewModelScope.launch {
             _sessionId = sessionRepository.createSession(sessionStartTime)

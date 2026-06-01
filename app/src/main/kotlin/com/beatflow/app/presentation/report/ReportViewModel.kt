@@ -2,6 +2,7 @@ package com.beatflow.app.presentation.report
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
 import com.beatflow.app.data.repository.SessionRepository
 import com.beatflow.app.domain.HrvCalculator
 import com.beatflow.app.domain.model.HrvMetrics
@@ -81,12 +82,17 @@ class ReportViewModel @Inject constructor(
         }
     }
 
-    fun exportReport() {
+    fun getDefaultFilename(): String {
+        val session = _session.value ?: return "export.hrv"
+        return fileExporter.buildFilename(session)
+    }
+
+    fun exportReportToUri(uri: Uri) {
         val currentSession = _session.value ?: return
         viewModelScope.launch {
-            val result = fileExporter.exportSession(currentSession)
-            result.onSuccess { file ->
-                _exportedFile.value = file
+            val result = fileExporter.exportSessionToUri(currentSession, uri)
+            result.onSuccess { savedUri ->
+                _exportedFile.value = java.io.File(savedUri.lastPathSegment ?: "exportado")
             }.onFailure { e ->
                 _error.value = "Error al guardar: ${e.message}"
             }

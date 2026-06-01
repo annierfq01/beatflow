@@ -1,5 +1,8 @@
 package com.beatflow.app.presentation.report
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -49,6 +52,14 @@ fun ReportScreen(
         viewModel.loadSession(sessionId)
     }
 
+    val saveLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.exportReportToUri(uri)
+        }
+    }
+
     LaunchedEffect(exportedFile) {
         exportedFile?.let {
             snackbarHostState.showSnackbar("Reporte guardado: ${it.name}")
@@ -65,7 +76,10 @@ fun ReportScreen(
             TopAppBar(
                 title = { Text("Reporte HRV") },
                 actions = {
-                    IconButton(onClick = viewModel::exportReport) {
+                    IconButton(onClick = {
+                        val filename = viewModel.getDefaultFilename()
+                        saveLauncher.launch(filename)
+                    }) {
                         Icon(Icons.Default.Save, contentDescription = "Guardar")
                     }
                 }

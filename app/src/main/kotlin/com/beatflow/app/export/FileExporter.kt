@@ -1,13 +1,12 @@
 package com.beatflow.app.export
 
 import android.content.Context
-import android.os.Environment
+import android.net.Uri
 import com.beatflow.app.domain.model.HrvSession
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.File
-import java.io.FileOutputStream
+import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -23,6 +22,38 @@ class FileExporter @Inject constructor(
     private val json = Json {
         prettyPrint = true
         ignoreUnknownKeys = true
+    }
+
+    fun buildFilename(session: HrvSession): String {
+        val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+        val timestamp = dateFormat.format(Date(session.startTime))
+        val nombre = session.patientData.nombre
+        val apellidos = session.patientData.apellidos
+        return "${timestamp}_${nombre}_${apellidos}.hrv"
+    }
+
+    fun exportSessionToUri(session: HrvSession, uri: Uri): Result<Uri> = runCatching {
+        val bytes = buildZipBytes(session)
+        context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+            outputStream.write(bytes)
+        } ?: throw IllegalStateException("No se pudo abrir el archivo")
+        uri
+    }
+
+    private fun buildZipBytes(session: HrvSession): ByteArray {
+        val baos = ByteArrayOutputStream()
+        ZipOutputStream(baos).use { zos ->
+            val csvContent = buildCsv(session)
+            zos.putNextEntry(ZipEntry("raw_data.csv"))
+            zos.write(csvContent.toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+
+            val jsonContent = buildJson(session)
+            zos.putNextEntry(ZipEntry("session.json"))
+            zos.write(jsonContent.toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+        }
+        return baos.toByteArray()
     }
 
     fun exportSession(session: HrvSession): Result<File> = runCatching {

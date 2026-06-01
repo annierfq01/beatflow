@@ -317,52 +317,37 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                 LineChart(ctx).apply {
                     description.isEnabled = false
                     legend.isEnabled = false
-                    setScaleEnabled(true)
-                    setPinchZoom(true)
+                    setScaleEnabled(false)
+                    setPinchZoom(false)
                     setDrawGridBackground(false)
                     xAxis.isEnabled = false
                     axisLeft.apply {
+                        axisMinimum = 30f
+                        axisMaximum = 220f
                         setDrawGridLines(true)
                         gridColor = BeatFlowColors.ChartGrid.toArgb()
                         textColor = android.graphics.Color.GRAY
                         setDrawLabels(true)
                     }
                     axisRight.isEnabled = false
-                    setTouchEnabled(true)
-                    setVisibleXRangeMaximum(60f)
-
-                    val entries = hrHistory.mapIndexed { index, hr ->
-                        Entry(index.toFloat(), hr.hr.toFloat())
-                    }
-                    if (entries.isNotEmpty()) {
-                        val dataSet = LineDataSet(entries, "HR").apply {
-                            color = BeatFlowColors.ChartLine.toArgb()
-                            setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                            circleRadius = 1.5f
-                            setDrawValues(false)
-                            lineWidth = 2f
-                            mode = LineDataSet.Mode.LINEAR
-                            setDrawFilled(true)
-                            fillColor = BeatFlowColors.ChartLine.toArgb()
-                            fillAlpha = 25
-                        }
-                        data = LineData(dataSet)
-                        notifyDataSetChanged()
-                        invalidate()
-                    }
+                    setTouchEnabled(false)
                 }
             },
             update = { chart ->
-                val entries = hrHistory.mapIndexed { index, hr ->
+                val windowSize = 5
+                val windowed = hrHistory.takeLast(windowSize)
+                val entries = windowed.mapIndexed { index, hr ->
                     Entry(index.toFloat(), hr.hr.toFloat())
                 }
                 if (entries.isNotEmpty()) {
+                    chart.xAxis.axisMinimum = -0.5f
+                    chart.xAxis.axisMaximum = windowSize - 0.5f
                     val dataSet = LineDataSet(entries, "HR").apply {
                         color = BeatFlowColors.ChartLine.toArgb()
                         setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                        circleRadius = 1.5f
+                        circleRadius = 3f
                         setDrawValues(false)
-                        lineWidth = 2f
+                        lineWidth = 3f
                         mode = LineDataSet.Mode.LINEAR
                         setDrawFilled(true)
                         fillColor = BeatFlowColors.ChartLine.toArgb()
@@ -371,7 +356,6 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                     chart.data = LineData(dataSet)
                     chart.notifyDataSetChanged()
                     chart.invalidate()
-                    chart.moveViewToX(entries.last().x)
                 }
             }
         )
@@ -392,53 +376,37 @@ private fun RrChart(rrIntervals: List<Double>) {
                 LineChart(ctx).apply {
                     description.isEnabled = false
                     legend.isEnabled = false
-                    setScaleEnabled(true)
-                    setPinchZoom(true)
+                    setScaleEnabled(false)
+                    setPinchZoom(false)
                     setDrawGridBackground(false)
                     xAxis.isEnabled = false
                     axisLeft.apply {
+                        axisMinimum = 200f
+                        axisMaximum = 1500f
                         setDrawGridLines(true)
                         gridColor = BeatFlowColors.ChartGrid.toArgb()
                         textColor = android.graphics.Color.GRAY
                         setDrawLabels(true)
                     }
                     axisRight.isEnabled = false
-                    setTouchEnabled(true)
-                    setAutoScaleMinMaxEnabled(true)
-                    setVisibleXRangeMaximum(60f)
-
-                    val entries = rrIntervals.mapIndexed { index, rr ->
-                        Entry(index.toFloat(), rr.toFloat())
-                    }
-                    if (entries.isNotEmpty()) {
-                        val dataSet = LineDataSet(entries, "RR").apply {
-                            color = BeatFlowColors.ChartLine.toArgb()
-                            setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                            circleRadius = 2f
-                            setDrawValues(false)
-                            lineWidth = 2f
-                            mode = LineDataSet.Mode.LINEAR
-                            setDrawFilled(true)
-                            fillColor = BeatFlowColors.ChartLine.toArgb()
-                            fillAlpha = 25
-                        }
-                        data = LineData(dataSet)
-                        notifyDataSetChanged()
-                        invalidate()
-                    }
+                    setTouchEnabled(false)
                 }
             },
             update = { chart ->
-                val entries = rrIntervals.mapIndexed { index, rr ->
+                val windowSize = 5
+                val windowed = rrIntervals.takeLast(windowSize)
+                val entries = windowed.mapIndexed { index, rr ->
                     Entry(index.toFloat(), rr.toFloat())
                 }
                 if (entries.isNotEmpty()) {
+                    chart.xAxis.axisMinimum = -0.5f
+                    chart.xAxis.axisMaximum = windowSize - 0.5f
                     val dataSet = LineDataSet(entries, "RR").apply {
                         color = BeatFlowColors.ChartLine.toArgb()
                         setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                        circleRadius = 2f
+                        circleRadius = 3f
                         setDrawValues(false)
-                        lineWidth = 2f
+                        lineWidth = 3f
                         mode = LineDataSet.Mode.LINEAR
                         setDrawFilled(true)
                         fillColor = BeatFlowColors.ChartLine.toArgb()
@@ -447,7 +415,6 @@ private fun RrChart(rrIntervals: List<Double>) {
                     chart.data = LineData(dataSet)
                     chart.notifyDataSetChanged()
                     chart.invalidate()
-                    chart.moveViewToX(entries.last().x)
                 }
             }
         )
@@ -468,11 +435,9 @@ private fun EcgChart(ecgSamples: List<Double>) {
                 LineChart(ctx).apply {
                     description.isEnabled = false
                     legend.isEnabled = false
-                    setScaleEnabled(true)
-                    setPinchZoom(true)
+                    setScaleEnabled(false)
+                    setPinchZoom(false)
                     setDrawGridBackground(false)
-                    setAutoScaleMinMaxEnabled(true)
-                    setVisibleXRangeMaximum(600f)
                     xAxis.apply {
                         setDrawGridLines(true)
                         gridColor = BeatFlowColors.ChartGrid.toArgb()
@@ -480,6 +445,40 @@ private fun EcgChart(ecgSamples: List<Double>) {
                         setDrawLabels(true)
                         setLabelCount(5, true)
                     }
+                    axisLeft.apply {
+                        axisMinimum = -2f
+                        axisMaximum = 2f
+                        setDrawGridLines(true)
+                        gridColor = BeatFlowColors.ChartGrid.toArgb()
+                        textColor = android.graphics.Color.GRAY
+                    }
+                    axisRight.isEnabled = false
+                }
+            },
+            update = { chart ->
+                val windowSize = 650
+                val windowed = ecgSamples.takeLast(windowSize)
+                val entries = windowed.mapIndexed { index, value ->
+                    Entry(index.toFloat(), value.toFloat())
+                }
+                if (entries.isNotEmpty()) {
+                    chart.xAxis.axisMinimum = -10f
+                    chart.xAxis.axisMaximum = windowSize.toFloat()
+                    val dataSet = LineDataSet(entries, "ECG").apply {
+                        color = BeatFlowColors.Primary.toArgb()
+                        setDrawCircles(false)
+                        setDrawValues(false)
+                        lineWidth = 1.5f
+                        mode = LineDataSet.Mode.LINEAR
+                    }
+                    chart.data = LineData(dataSet)
+                    chart.notifyDataSetChanged()
+                    chart.invalidate()
+                }
+            }
+        )
+    }
+}
                     axisLeft.apply {
                         setDrawGridLines(true)
                         gridColor = BeatFlowColors.ChartGrid.toArgb()
