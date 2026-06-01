@@ -18,6 +18,8 @@ class BluetoothViewModel @Inject constructor(
 ) : ViewModel() {
 
     val connectionState: StateFlow<ConnectionState> = polarManager.connectionState
+    val isBluetoothEnabled: StateFlow<Boolean> = polarManager.isBluetoothEnabled
+    val isLocationEnabled: StateFlow<Boolean> = polarManager.isLocationEnabled
 
     private val _foundDevices = MutableStateFlow<List<PolarDevice>>(emptyList())
     val foundDevices: StateFlow<List<PolarDevice>> = _foundDevices.asStateFlow()
@@ -25,8 +27,23 @@ class BluetoothViewModel @Inject constructor(
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
+    private val _scanMessage = MutableStateFlow<String?>(null)
+    val scanMessage: StateFlow<String?> = _scanMessage.asStateFlow()
+
     fun startScan() {
         if (_isScanning.value) return
+        _scanMessage.value = null
+
+        if (!polarManager.isBluetoothEnabled.value) {
+            _scanMessage.value = "BLUETOOTH_OFF"
+            return
+        }
+
+        if (!polarManager.isLocationEnabled.value) {
+            _scanMessage.value = "LOCATION_OFF"
+            return
+        }
+
         _isScanning.value = true
         _foundDevices.value = emptyList()
 
@@ -35,6 +52,10 @@ class BluetoothViewModel @Inject constructor(
                 _foundDevices.value = _foundDevices.value + device
             }
             _isScanning.value = false
+
+            if (_foundDevices.value.isEmpty() && _scanMessage.value == null) {
+                _scanMessage.value = "NO_DEVICES"
+            }
         }
     }
 
@@ -43,8 +64,16 @@ class BluetoothViewModel @Inject constructor(
         _isScanning.value = false
     }
 
+    fun dismissMessage() {
+        _scanMessage.value = null
+    }
+
     fun connectToDevice(deviceId: String) {
         polarManager.connectToDevice(deviceId)
+    }
+
+    fun refreshLocationState() {
+        polarManager.refreshLocationState()
     }
 
     override fun onCleared() {

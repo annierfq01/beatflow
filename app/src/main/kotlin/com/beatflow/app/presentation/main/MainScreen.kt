@@ -1,5 +1,10 @@
 package com.beatflow.app.presentation.main
 
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
+import android.location.LocationManager
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -12,12 +17,14 @@ import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -35,13 +42,32 @@ fun MainScreen(
     val connectionState by viewModel.connectionState.collectAsState()
     val foundDevices by viewModel.foundDevices.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
+    val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
+    val isLocationEnabled by viewModel.isLocationEnabled.collectAsState()
+    val scanMessage by viewModel.scanMessage.collectAsState()
+
+    val context = LocalContext.current
 
     var showDeviceDialog by remember { mutableStateOf(false) }
+    var showBtDialog by remember { mutableStateOf(false) }
+    var showLocationDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(connectionState) {
         if (connectionState is ConnectionState.Connected) {
             snackbarHostState.showSnackbar("Conexión exitosa")
+        }
+    }
+
+    LaunchedEffect(scanMessage) {
+        when (scanMessage) {
+            "BLUETOOTH_OFF" -> showBtDialog = true
+            "LOCATION_OFF" -> showLocationDialog = true
+            "NO_DEVICES" -> {
+                snackbarHostState.showSnackbar(
+                    "No se encontraron dispositivos Polar. Verifica que el sensor esté encendido."
+                )
+            }
         }
     }
 
@@ -88,8 +114,15 @@ fun MainScreen(
             Button(
                 onClick = {
                     if (connectionState !is ConnectionState.Connected) {
-                        showDeviceDialog = true
-                        viewModel.startScan()
+                        viewModel.dismissMessage()
+                        if (!isBluetoothEnabled) {
+                            showBtDialog = true
+                        } else if (!isLocationEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            showLocationDialog = true
+                        } else {
+                            showDeviceDialog = true
+                            viewModel.startScan()
+                        }
                     }
                 },
                 modifier = Modifier
@@ -159,7 +192,19 @@ fun MainScreen(
                         Text("Buscando dispositivos…")
                     }
                 } else if (foundDevices.isEmpty()) {
-                    Text("Ningún dispositivo Polar encontrado")
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Ningún dispositivo Polar encontrado")
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(onClick = {
+                            viewModel.dismissMessage()
+                            viewModel.startScan()
+                        }) {
+                            Text("REINTENTAR")
+                        }
+                    }
                 } else {
                     LazyColumn {
                         items(foundDevices) { device ->
@@ -209,6 +254,45 @@ fun MainScreen(
                 }) {
                     Text("Cancelar")
                 }
+            }
+        )
+    }
+}
+
+    if (showBtDialog) {
+        AlertDialog(
+            onDismissRequest = { showBtDialog = false },
+            icon = { Icon(Icons.Default.Bluetooth, contentDescription = null) },
+            title = { Text("Bluetooth desactivado") },
+            text = { Text("Activa el Bluetooth para buscar dispositivos Polar.") },
+            confirmButton = {
+                Button(onClick = {
+                    showBtDialog = false
+                    context.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                }) { Text("ACTIVAR BLUETOOTH") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBtDialog = false }) { Text("CANCELAR") }
+            }
+        )
+    }
+
+    if (showLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationDialog = false },
+            icon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+            title = { Text("Ubicación desactivada") },
+            text = {
+                Text("En Android 10+ es necesario activar la ubicación para buscar dispositivos Bluetooth.")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showLocationDialog = false
+                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                }) { Text("ABRIR AJUSTES") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLocationDialog = false }) { Text("CANCELAR") }
             }
         )
     }

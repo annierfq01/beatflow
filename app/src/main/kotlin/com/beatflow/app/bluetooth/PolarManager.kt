@@ -1,6 +1,13 @@
 package com.beatflow.app.bluetooth
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.location.LocationManager
+import android.os.Build
 import com.polar.sdk.api.PolarBleApi
 import com.polar.sdk.api.PolarBleApiCallback
 import com.polar.sdk.api.PolarBleApiDefaultImpl
@@ -17,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -70,9 +78,18 @@ class PolarManager @Inject constructor(
 
     private var lastConnectedDeviceId: String? = null
 
+    private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
+
+    private val _isBluetoothEnabled = MutableStateFlow(bluetoothAdapter?.isEnabled == true)
+    val isBluetoothEnabled: StateFlow<Boolean> = _isBluetoothEnabled.asStateFlow()
+
+    private val _isLocationEnabled = MutableStateFlow(true)
+    val isLocationEnabled: StateFlow<Boolean> = _isLocationEnabled.asStateFlow()
+
     init {
         api.setApiCallback(object : PolarBleApiCallback() {
             override fun blePowerStateChanged(powered: Boolean) {
+                _isBluetoothEnabled.value = powered
                 if (!powered) {
                     _connectionState.value = ConnectionState.Disconnected
                 }
@@ -132,24 +149,89 @@ class PolarManager @Inject constructor(
 
             override fun batteryLevelReceived(identifier: String, level: Int) {}
         })
+
+        btReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                when (intent.action) {
+                    BluetoothAdapter.ACTION_STATE_CHANGED -> {
+                        val state = intent.getIntExtra(
+                            BluetoothAdapter.EXTRA_STATE,
+                            BluetoothAdapter.STATE_OFF
+                        )
+                        _isBluetoothEnabled.value = state == BluetoothAdapter.STATE_ON
+                    }
+                }
+            }
+        }
+        context.registerReceiver(btReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+
+        updateLocationState()
+    }
+
+    private fun updateLocationState() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val locationManager =
+                context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            _isLocationEnabled.value =
+                locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                        locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        } else {
+            _isLocationEnabled.value = true
+        }
+    }
+
+    fun getBondedPolarDevices(): List<PolarDevice> {
+        val bonded = bluetoothAdapter?.bondedDevices ?: return emptyList()
+        return bonded
+            .filter { device ->
+                device.type == BluetoothDevice.DEVICE_TYPE_LE ||
+                        device.type == BluetoothDevice.DEVICE_TYPE_DUAL
+            }
+            .mapNotNull { device ->
+                val name = device.name?.trim()
+                if (name != null && name.contains("Polar", ignoreCase = true)) {
+                    PolarDevice(
+                        deviceId = device.address,
+                        name = name,
+                        rssi = null
+                    )
+                } else null
+            }
     }
 
     fun startScanning(): Flow<PolarDevice> = callbackFlow {
+        if (bluetoothAdapter?.isEnabled != true) {
+            close()
+            return@callbackFlow
+        }
+
         _foundDevices.value = emptyList()
+
+        val bonded = getBondedPolarDevices()
+        bonded.forEach { device ->
+            _foundDevices.value = _foundDevices.value + device
+            trySend(device)
+        }
 
         scanDisposable = api.searchForDevice()
             .observeOn(AndroidSchedulers.mainThread())
+            .timeout(12, TimeUnit.SECONDS)
             .subscribe(
                 { deviceInfo ->
                     val name = deviceInfo.name?.trim()
                     if (name != null && name.contains("Polar", ignoreCase = true)) {
-                        val device = PolarDevice(
-                            deviceId = deviceInfo.deviceId,
-                            name = name,
-                            rssi = deviceInfo.rssi
-                        )
-                        _foundDevices.value = _foundDevices.value + device
-                        trySend(device)
+                        val alreadyFound = _foundDevices.value.any {
+                            it.deviceId == deviceInfo.deviceId
+                        }
+                        if (!alreadyFound) {
+                            val device = PolarDevice(
+                                deviceId = deviceInfo.deviceId,
+                                name = name,
+                                rssi = deviceInfo.rssi
+                            )
+                            _foundDevices.value = _foundDevices.value + device
+                            trySend(device)
+                        }
                     }
                 },
                 { close(it) },
@@ -195,10 +277,18 @@ class PolarManager @Inject constructor(
         startEcgStreaming(deviceId)
     }
 
+    private var btReceiver: BroadcastReceiver? = null
+
     fun cleanup() {
         scanDisposable?.dispose()
         hrDisposable?.dispose()
         ecgDisposable?.dispose()
+        btReceiver?.let { context.unregisterReceiver(it) }
+        btReceiver = null
         api.shutDown()
+    }
+
+    fun refreshLocationState() {
+        updateLocationState()
     }
 }
