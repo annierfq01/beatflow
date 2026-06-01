@@ -51,11 +51,25 @@ fun MainScreen(
     var showDeviceDialog by remember { mutableStateOf(false) }
     var showBtDialog by remember { mutableStateOf(false) }
     var showLocationDialog by remember { mutableStateOf(false) }
+    var isConnecting by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(connectionState) {
-        if (connectionState is ConnectionState.Connected) {
-            snackbarHostState.showSnackbar("Conexión exitosa")
+        when (connectionState) {
+            is ConnectionState.Connected -> {
+                isConnecting = false
+                showDeviceDialog = false
+                snackbarHostState.showSnackbar("✓ Conectado a ${(connectionState as ConnectionState.Connected).deviceId}")
+            }
+            is ConnectionState.ConnectionFailed -> {
+                isConnecting = false
+                val err = connectionState as ConnectionState.ConnectionFailed
+                snackbarHostState.showSnackbar("✗ ${err.message}")
+            }
+            is ConnectionState.Connecting -> {
+                isConnecting = true
+            }
+            else -> {}
         }
     }
 
@@ -134,15 +148,22 @@ fun MainScreen(
                 )
             ) {
                 Icon(
-                    imageVector = if (connectionState is ConnectionState.Connected)
-                        Icons.Default.BluetoothConnected else Icons.Default.Bluetooth,
+                    imageVector = when (connectionState) {
+                        is ConnectionState.Connected -> Icons.Default.BluetoothConnected
+                        is ConnectionState.Connecting -> Icons.Default.BluetoothSearching
+                        else -> Icons.Default.Bluetooth
+                    },
                     contentDescription = null,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = if (connectionState is ConnectionState.Connected)
-                        "CONECTADO" else "BUSCAR DISPOSITIVOS",
+                    text = when (connectionState) {
+                        is ConnectionState.Connected -> "CONECTADO"
+                        is ConnectionState.Connecting -> "CONECTANDO…"
+                        is ConnectionState.ConnectionFailed -> "RECONECTAR"
+                        else -> "BUSCAR DISPOSITIVOS"
+                    },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -180,9 +201,20 @@ fun MainScreen(
                 showDeviceDialog = false
                 viewModel.stopScan()
             },
-            title = { Text("Dispositivos Polar") },
+            title = {
+                Text(if (isConnecting) "Conectando…" else "Dispositivos Polar")
+            },
             text = {
-                if (isScanning && foundDevices.isEmpty()) {
+                if (isConnecting) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Conectando con el dispositivo…")
+                    }
+                } else if (isScanning && foundDevices.isEmpty()) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -213,9 +245,8 @@ fun MainScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp),
                                 onClick = {
-                                    viewModel.connectToDevice(device.deviceId)
-                                    showDeviceDialog = false
                                     viewModel.stopScan()
+                                    viewModel.connectToDevice(device.deviceId)
                                 }
                             ) {
                                 Row(
@@ -248,11 +279,21 @@ fun MainScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    showDeviceDialog = false
-                    viewModel.stopScan()
-                }) {
-                    Text("Cancelar")
+                if (isConnecting) {
+                    TextButton(onClick = {
+                        isConnecting = false
+                        viewModel.dismissConnectionError()
+                        showDeviceDialog = false
+                    }) {
+                        Text("Cancelar")
+                    }
+                } else {
+                    TextButton(onClick = {
+                        showDeviceDialog = false
+                        viewModel.stopScan()
+                    }) {
+                        Text("Cancelar")
+                    }
                 }
             }
         )
@@ -306,6 +347,7 @@ private fun ConnectionStatusCard(state: ConnectionState) {
             containerColor = when (state) {
                 is ConnectionState.Connected -> BeatFlowColors.Success.copy(alpha = 0.1f)
                 is ConnectionState.Connecting -> BeatFlowColors.Warning.copy(alpha = 0.1f)
+                is ConnectionState.ConnectionFailed -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
                 is ConnectionState.Disconnected -> MaterialTheme.colorScheme.surfaceVariant
             }
         )
@@ -324,6 +366,7 @@ private fun ConnectionStatusCard(state: ConnectionState) {
                         when (state) {
                             is ConnectionState.Connected -> BeatFlowColors.Success
                             is ConnectionState.Connecting -> BeatFlowColors.Warning
+                            is ConnectionState.ConnectionFailed -> MaterialTheme.colorScheme.error
                             is ConnectionState.Disconnected -> MaterialTheme.colorScheme.error
                         }
                     )
@@ -334,6 +377,7 @@ private fun ConnectionStatusCard(state: ConnectionState) {
                     text = when (state) {
                         is ConnectionState.Connected -> "Conectado"
                         is ConnectionState.Connecting -> "Conectando…"
+                        is ConnectionState.ConnectionFailed -> "Error de conexión"
                         is ConnectionState.Disconnected -> "Desconectado"
                     },
                     fontWeight = FontWeight.Medium
@@ -351,12 +395,14 @@ private fun ConnectionStatusCard(state: ConnectionState) {
                 imageVector = when (state) {
                     is ConnectionState.Connected -> Icons.Default.BluetoothConnected
                     is ConnectionState.Connecting -> Icons.Default.BluetoothSearching
+                    is ConnectionState.ConnectionFailed -> Icons.Default.Bluetooth
                     is ConnectionState.Disconnected -> Icons.Default.Bluetooth
                 },
                 contentDescription = null,
                 tint = when (state) {
                     is ConnectionState.Connected -> BeatFlowColors.Success
                     is ConnectionState.Connecting -> BeatFlowColors.Warning
+                    is ConnectionState.ConnectionFailed -> MaterialTheme.colorScheme.error
                     is ConnectionState.Disconnected -> MaterialTheme.colorScheme.onSurfaceVariant
                 }
             )

@@ -69,7 +69,14 @@ class BluetoothViewModel @Inject constructor(
     }
 
     fun connectToDevice(deviceId: String) {
+        _foundDevices.value = emptyList()
         polarManager.connectToDevice(deviceId)
+    }
+
+    fun dismissConnectionError() {
+        if (connectionState.value is ConnectionState.ConnectionFailed) {
+            polarManager.disconnect()
+        }
     }
 
     fun refreshLocationState() {

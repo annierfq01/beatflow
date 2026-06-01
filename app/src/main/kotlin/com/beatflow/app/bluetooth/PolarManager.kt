@@ -32,6 +32,7 @@ sealed class ConnectionState {
     data object Disconnected : ConnectionState()
     data class Connected(val deviceId: String) : ConnectionState()
     data class Connecting(val deviceId: String) : ConnectionState()
+    data class ConnectionFailed(val deviceId: String, val message: String = "Error de conexión") : ConnectionState()
 }
 
 data class HrMeasurement(
@@ -72,6 +73,7 @@ class PolarManager @Inject constructor(
     private var scanDisposable: Disposable? = null
     private var ecgDisposable: Disposable? = null
     private var hrDisposable: Disposable? = null
+    private var connectionTimeoutDisposable: Disposable? = null
 
     private val _foundDevices = MutableStateFlow<List<PolarDevice>>(emptyList())
     val foundDevices: StateFlow<List<PolarDevice>> = _foundDevices.asStateFlow()
@@ -97,6 +99,8 @@ class PolarManager @Inject constructor(
             }
 
             override fun deviceConnected(polarDeviceInfo: PolarDeviceInfo) {
+                connectionTimeoutDisposable?.dispose()
+                connectionTimeoutDisposable = null
                 lastConnectedDeviceId = polarDeviceInfo.deviceId
                 _connectionState.value = ConnectionState.Connected(polarDeviceInfo.deviceId)
             }
@@ -106,7 +110,17 @@ class PolarManager @Inject constructor(
             }
 
             override fun deviceDisconnected(polarDeviceInfo: PolarDeviceInfo) {
-                _connectionState.value = ConnectionState.Disconnected
+                connectionTimeoutDisposable?.dispose()
+                connectionTimeoutDisposable = null
+                val previous = _connectionState.value
+                if (previous is ConnectionState.Connecting || previous is ConnectionState.Connected) {
+                    _connectionState.value = ConnectionState.ConnectionFailed(
+                        deviceId = previous.deviceId,
+                        message = "Conexión perdida"
+                    )
+                } else {
+                    _connectionState.value = ConnectionState.Disconnected
+                }
             }
 
             override fun bleSdkFeatureReady(
@@ -248,7 +262,20 @@ class PolarManager @Inject constructor(
     }
 
     fun connectToDevice(deviceId: String) {
+        connectionTimeoutDisposable?.dispose()
+        _connectionState.value = ConnectionState.Connecting(deviceId)
         api.connectToDevice(deviceId)
+        connectionTimeoutDisposable = io.reactivex.rxjava3.core.Observable
+            .timer(15, TimeUnit.SECONDS)
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe {
+                if (_connectionState.value is ConnectionState.Connecting) {
+                    _connectionState.value = ConnectionState.ConnectionFailed(
+                        deviceId = deviceId,
+                        message = "Tiempo de conexión agotado"
+                    )
+                }
+            }
     }
 
     fun disconnect() {
@@ -282,6 +309,7 @@ class PolarManager @Inject constructor(
         scanDisposable?.dispose()
         hrDisposable?.dispose()
         ecgDisposable?.dispose()
+        connectionTimeoutDisposable?.dispose()
         btReceiver?.let { context.unregisterReceiver(it) }
         btReceiver = null
         api.shutDown()
