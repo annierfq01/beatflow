@@ -231,14 +231,15 @@ class PolarManager @Inject constructor(
             .timeout(12, TimeUnit.SECONDS)
             .subscribe(
                 { deviceInfo ->
-                    val name = deviceInfo.name?.trim()
-                    if (name != null && name.contains("Polar", ignoreCase = true)) {
+                    val devId = deviceInfo.deviceId ?: return@subscribe
+                    val name = deviceInfo.name?.trim() ?: return@subscribe
+                    if (name.contains("Polar", ignoreCase = true)) {
                         val alreadyFound = _foundDevices.value.any {
-                            it.deviceId == deviceInfo.deviceId
+                            it.deviceId == devId
                         }
                         if (!alreadyFound) {
                             val device = PolarDevice(
-                                deviceId = deviceInfo.deviceId,
+                                deviceId = devId,
                                 name = name,
                                 rssi = deviceInfo.rssi
                             )
@@ -247,7 +248,7 @@ class PolarManager @Inject constructor(
                         }
                     }
                 },
-                { close(it) },
+                { /* scan error or timeout, flow closes */ close() },
                 { close() }
             )
 
@@ -262,7 +263,15 @@ class PolarManager @Inject constructor(
     fun connectToDevice(deviceId: String) {
         connectionTimeoutDisposable?.dispose()
         _connectionState.value = ConnectionState.Connecting(deviceId)
-        api.connectToDevice(deviceId)
+        try {
+            api.connectToDevice(deviceId)
+        } catch (e: Exception) {
+            _connectionState.value = ConnectionState.ConnectionFailed(
+                deviceId = deviceId,
+                message = "Error al conectar: ${e.localizedMessage ?: "desconocido"}"
+            )
+            return
+        }
         connectionTimeoutDisposable = io.reactivex.rxjava3.core.Observable
             .timer(15, TimeUnit.SECONDS)
             .observeOn(AndroidSchedulers.mainThread())

@@ -295,6 +295,16 @@ fun MainScreen(
                         Text("Cancelar")
                     }
                 }
+            },
+            dismissButton = {
+                if (!isConnecting && !isScanning) {
+                    TextButton(onClick = {
+                        viewModel.dismissMessage()
+                        viewModel.startScan()
+                    }) {
+                        Text("Buscar de nuevo")
+                    }
+                }
             }
         )
     }
