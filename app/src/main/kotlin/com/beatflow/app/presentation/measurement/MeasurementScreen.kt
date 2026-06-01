@@ -45,6 +45,8 @@ fun MeasurementScreen(
     val hrHistory by viewModel.hrHistory.collectAsState()
     val rrIntervals by viewModel.rrIntervals.collectAsState()
     val ecgBuffer by viewModel.ecgBuffer.collectAsState()
+    val hrBuffer by viewModel.hrBuffer.collectAsState()
+    val rrBuffer by viewModel.rrBuffer.collectAsState()
     val sessionDuration by viewModel.sessionDuration.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val batteryLevel by viewModel.batteryLevel.collectAsState()
@@ -135,7 +137,7 @@ fun MeasurementScreen(
                         }
                     }
                     ChartType.HR -> {
-                        if (hrHistory.isEmpty()) {
+                        if (hrBuffer.isEmpty()) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -152,11 +154,11 @@ fun MeasurementScreen(
                                 )
                             }
                         } else {
-                            HrChart(hrHistory)
+                            HrChart(hrBuffer)
                         }
                     }
                     ChartType.RR -> {
-                        if (rrIntervals.isEmpty()) {
+                        if (rrBuffer.isEmpty()) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -173,7 +175,7 @@ fun MeasurementScreen(
                                 )
                             }
                         } else {
-                            RrChart(rrIntervals)
+                            RrChart(rrBuffer)
                         }
                     }
                 }
@@ -304,7 +306,7 @@ private fun TimerCard(durationMs: Long) {
 }
 
 @Composable
-private fun HrChart(hrHistory: List<HrMeasurement>) {
+private fun HrChart(hrBuffer: List<Float>) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -322,8 +324,8 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                     setDrawGridBackground(false)
                     xAxis.isEnabled = false
                     axisLeft.apply {
-                        axisMinimum = 30f
-                        axisMaximum = 220f
+                        axisMinimum = 0f
+                        axisMaximum = 250f
                         setDrawGridLines(true)
                         gridColor = BeatFlowColors.ChartGrid.toArgb()
                         textColor = android.graphics.Color.GRAY
@@ -334,35 +336,30 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                 }
             },
             update = { chart ->
-                val windowSize = MeasurementViewModel.HR_CHART_SIZE
-                val data = hrHistory.takeLast(windowSize)
-                if (data.isNotEmpty()) {
-                    val values = data.map { it.hr.toFloat() }
-                    val entries = values.mapIndexed { i, v -> Entry(i.toFloat(), v) }
-                    chart.xAxis.axisMinimum = 0f
-                    chart.xAxis.axisMaximum = (windowSize - 1).toFloat()
-                    val dataSet = LineDataSet(entries, "HR").apply {
-                        color = BeatFlowColors.ChartLine.toArgb()
-                        setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                        circleRadius = 3f
-                        setDrawValues(false)
-                        lineWidth = 3f
-                        mode = LineDataSet.Mode.LINEAR
-                        setDrawFilled(true)
-                        fillColor = BeatFlowColors.ChartLine.toArgb()
-                        fillAlpha = 25
-                    }
-                    chart.data = LineData(dataSet)
-                    chart.notifyDataSetChanged()
-                    chart.invalidate()
+                val entries = hrBuffer.mapIndexed { i, v -> Entry(i.toFloat(), v) }
+                chart.xAxis.axisMinimum = 0f
+                chart.xAxis.axisMaximum = (hrBuffer.size - 1).coerceAtLeast(0).toFloat()
+                val dataSet = LineDataSet(entries, "HR").apply {
+                    color = BeatFlowColors.ChartLine.toArgb()
+                    setCircleColor(BeatFlowColors.ChartLine.toArgb())
+                    circleRadius = 3f
+                    setDrawValues(false)
+                    lineWidth = 3f
+                    mode = LineDataSet.Mode.LINEAR
+                    setDrawFilled(true)
+                    fillColor = BeatFlowColors.ChartLine.toArgb()
+                    fillAlpha = 25
                 }
+                chart.data = LineData(dataSet)
+                chart.notifyDataSetChanged()
+                chart.invalidate()
             }
         )
     }
 }
 
 @Composable
-private fun RrChart(rrIntervals: List<Double>) {
+private fun RrChart(rrBuffer: List<Float>) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -380,8 +377,8 @@ private fun RrChart(rrIntervals: List<Double>) {
                     setDrawGridBackground(false)
                     xAxis.isEnabled = false
                     axisLeft.apply {
-                        axisMinimum = 200f
-                        axisMaximum = 1500f
+                        axisMinimum = 0f
+                        axisMaximum = 2000f
                         setDrawGridLines(true)
                         gridColor = BeatFlowColors.ChartGrid.toArgb()
                         textColor = android.graphics.Color.GRAY
@@ -392,28 +389,23 @@ private fun RrChart(rrIntervals: List<Double>) {
                 }
             },
             update = { chart ->
-                val windowSize = MeasurementViewModel.RR_CHART_SIZE
-                val data = rrIntervals.takeLast(windowSize)
-                if (data.isNotEmpty()) {
-                    val values = data.map { it.toFloat() }
-                    val entries = values.mapIndexed { i, v -> Entry(i.toFloat(), v) }
-                    chart.xAxis.axisMinimum = 0f
-                    chart.xAxis.axisMaximum = (windowSize - 1).toFloat()
-                    val dataSet = LineDataSet(entries, "RR").apply {
-                        color = BeatFlowColors.ChartLine.toArgb()
-                        setCircleColor(BeatFlowColors.ChartLine.toArgb())
-                        circleRadius = 3f
-                        setDrawValues(false)
-                        lineWidth = 3f
-                        mode = LineDataSet.Mode.LINEAR
-                        setDrawFilled(true)
-                        fillColor = BeatFlowColors.ChartLine.toArgb()
-                        fillAlpha = 25
-                    }
-                    chart.data = LineData(dataSet)
-                    chart.notifyDataSetChanged()
-                    chart.invalidate()
+                val entries = rrBuffer.mapIndexed { i, v -> Entry(i.toFloat(), v) }
+                chart.xAxis.axisMinimum = 0f
+                chart.xAxis.axisMaximum = (rrBuffer.size - 1).coerceAtLeast(0).toFloat()
+                val dataSet = LineDataSet(entries, "RR").apply {
+                    color = BeatFlowColors.ChartLine.toArgb()
+                    setCircleColor(BeatFlowColors.ChartLine.toArgb())
+                    circleRadius = 3f
+                    setDrawValues(false)
+                    lineWidth = 3f
+                    mode = LineDataSet.Mode.LINEAR
+                    setDrawFilled(true)
+                    fillColor = BeatFlowColors.ChartLine.toArgb()
+                    fillAlpha = 25
                 }
+                chart.data = LineData(dataSet)
+                chart.notifyDataSetChanged()
+                chart.invalidate()
             }
         )
     }

@@ -32,6 +32,12 @@ class MeasurementViewModel @Inject constructor(
     private val _ecgBuffer = MutableStateFlow<List<Double>>(emptyList())
     val ecgBuffer: StateFlow<List<Double>> = _ecgBuffer.asStateFlow()
 
+    private val _hrBuffer = MutableStateFlow<List<Float>>(emptyList())
+    val hrBuffer: StateFlow<List<Float>> = _hrBuffer.asStateFlow()
+
+    private val _rrBuffer = MutableStateFlow<List<Float>>(emptyList())
+    val rrBuffer: StateFlow<List<Float>> = _rrBuffer.asStateFlow()
+
     private val _sessionDuration = MutableStateFlow(0L)
     val sessionDuration: StateFlow<Long> = _sessionDuration.asStateFlow()
 
@@ -127,8 +133,10 @@ class MeasurementViewModel @Inject constructor(
                             )
                         )
                     }
+                    _rrBuffer.value = rrRingBuffer.toList()
                     hrRingBuffer.addLast(lastHr)
                     if (hrRingBuffer.size > HR_CHART_SIZE) hrRingBuffer.removeFirst()
+                    _hrBuffer.value = hrRingBuffer.toList()
 
                     if (pendingRecords.size >= 10) {
                         flushRecords()

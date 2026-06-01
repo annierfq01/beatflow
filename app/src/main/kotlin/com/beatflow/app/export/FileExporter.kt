@@ -6,6 +6,9 @@ import com.beatflow.app.domain.model.HrvSession
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -94,54 +97,54 @@ class FileExporter @Inject constructor(
         val startFormatted = dateFormat.format(Date(session.startTime))
         val endFormatted = dateFormat.format(Date(session.endTime))
 
-        val data = mapOf(
-            "patient" to mapOf(
-                "nombre" to session.patientData.nombre,
-                "apellidos" to session.patientData.apellidos,
-                "edad" to session.patientData.edad,
-                "sexo" to session.patientData.sexo
-            ),
-            "session" to mapOf(
-                "startTime" to startFormatted,
-                "endTime" to endFormatted,
-                "durationMs" to session.durationMs,
-                "totalRecords" to session.records.size
-            ),
-            "metrics" to session.metrics?.let { metrics ->
-                mapOf(
-                    "timeDomain" to mapOf(
-                        "meanHr" to metrics.meanHr,
-                        "sdnn" to metrics.sdnn,
-                        "rmssd" to metrics.rmssd,
-                        "pnn50" to metrics.pnn50,
-                        "pnn20" to metrics.pnn20,
-                        "nn50" to metrics.nn50,
-                        "nn20" to metrics.nn20,
-                        "maxHr" to metrics.maxHr,
-                        "minHr" to metrics.minHr
-                    ),
-                    "frequencyDomain" to mapOf(
-                        "vlf" to metrics.vlf,
-                        "lf" to metrics.lf,
-                        "hf" to metrics.hf,
-                        "totalPower" to metrics.totalPower,
-                        "lfHfRatio" to metrics.lfHfRatio,
-                        "lfNu" to metrics.lfNu,
-                        "hfNu" to metrics.hfNu
-                    ),
-                    "nonLinear" to mapOf(
-                        "sd1" to metrics.sd1,
-                        "sd2" to metrics.sd2,
-                        "sd1Sd2Ratio" to metrics.sd1Sd2Ratio
-                    )
-                )
-            },
-            "metadata" to mapOf(
-                "app" to "BeatFlow",
-                "version" to "1.0.0",
-                "device" to "Polar H10"
-            )
-        )
+        val data = buildJsonObject {
+            putJsonObject("patient") {
+                put("nombre", session.patientData.nombre)
+                put("apellidos", session.patientData.apellidos)
+                put("edad", session.patientData.edad)
+                put("sexo", session.patientData.sexo)
+            }
+            putJsonObject("session") {
+                put("startTime", startFormatted)
+                put("endTime", endFormatted)
+                put("durationMs", session.durationMs)
+                put("totalRecords", session.records.size)
+            }
+            if (session.metrics != null) {
+                putJsonObject("metrics") {
+                    putJsonObject("timeDomain") {
+                        put("meanHr", session.metrics.meanHr)
+                        put("sdnn", session.metrics.sdnn)
+                        put("rmssd", session.metrics.rmssd)
+                        put("pnn50", session.metrics.pnn50)
+                        put("pnn20", session.metrics.pnn20)
+                        put("nn50", session.metrics.nn50)
+                        put("nn20", session.metrics.nn20)
+                        put("maxHr", session.metrics.maxHr)
+                        put("minHr", session.metrics.minHr)
+                    }
+                    putJsonObject("frequencyDomain") {
+                        put("vlf", session.metrics.vlf)
+                        put("lf", session.metrics.lf)
+                        put("hf", session.metrics.hf)
+                        put("totalPower", session.metrics.totalPower)
+                        put("lfHfRatio", session.metrics.lfHfRatio)
+                        put("lfNu", session.metrics.lfNu)
+                        put("hfNu", session.metrics.hfNu)
+                    }
+                    putJsonObject("nonLinear") {
+                        put("sd1", session.metrics.sd1)
+                        put("sd2", session.metrics.sd2)
+                        put("sd1Sd2Ratio", session.metrics.sd1Sd2Ratio)
+                    }
+                }
+            }
+            putJsonObject("metadata") {
+                put("app", "BeatFlow")
+                put("version", "1.0.0")
+                put("device", "Polar H10")
+            }
+        }
 
         return json.encodeToString(data)
     }

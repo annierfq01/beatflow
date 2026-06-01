@@ -79,6 +79,7 @@ class PolarManager @Inject constructor(
     private var ecgDisposable: Disposable? = null
     private var hrDisposable: Disposable? = null
     private var connectionTimeoutDisposable: Disposable? = null
+    private var isOnlineStreamingReady = false
 
     private val _foundDevices = MutableStateFlow<List<PolarDevice>>(emptyList())
     val foundDevices: StateFlow<List<PolarDevice>> = _foundDevices.asStateFlow()
@@ -133,6 +134,7 @@ class PolarManager @Inject constructor(
                 identifier: String,
                 feature: PolarBleApi.PolarBleSdkFeature
             ) {
+                Log.d(TAG, "Feature ready: $feature for device $identifier")
                 if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_HR) {
                     hrDisposable = api.startHrStreaming(identifier)
                         .observeOn(AndroidSchedulers.mainThread())
@@ -147,8 +149,11 @@ class PolarManager @Inject constructor(
                                     )
                                 }
                             },
-                { error -> Log.e(TAG, "HR streaming error: ${error.message}", error) }
+                            { error -> Log.e(TAG, "HR streaming error: ${error.message}", error) }
                         )
+                }
+                if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING) {
+                    isOnlineStreamingReady = true
                 }
             }
 
@@ -317,6 +322,9 @@ class PolarManager @Inject constructor(
 
     fun startEcgStreaming(deviceId: String) {
         if (ecgDisposable != null) return
+        if (!isOnlineStreamingReady) {
+            Log.w(TAG, "ECG streaming requested but FEATURE_POLAR_ONLINE_STREAMING not ready yet")
+        }
         val defaultSetting = PolarSensorSetting(
             mapOf(PolarSensorSetting.SettingType.SAMPLE_RATE to 130)
         )
@@ -324,7 +332,16 @@ class PolarManager @Inject constructor(
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(
                 { ecgData ->
-                    _ecgSamples.value = ecgData.samples.map { (it as com.polar.sdk.api.model.FecgSample).ecg.toDouble() }
+                    _ecgSamples.value = ecgData.samples.map { sample ->
+                        when (sample) {
+                            is com.polar.sdk.api.model.EcgSample -> sample.voltage.toDouble()
+                            is com.polar.sdk.api.model.FecgSample -> sample.ecg.toDouble()
+                            else -> {
+                                Log.w(TAG, "Unknown ECG sample type: ${sample::class.qualifiedName}")
+                                0.0
+                            }
+                        }
+                    }
                 },
                 { error -> Log.e(TAG, "ECG streaming error: ${error.message}", error) }
             )
