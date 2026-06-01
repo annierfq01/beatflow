@@ -13,25 +13,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
-import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.beatflow.app.domain.model.HrvMetrics
 import com.beatflow.app.export.FileImporter
 import com.beatflow.app.export.ImportedSession
 import com.beatflow.app.presentation.components.FrequencyDomainCard
 import com.beatflow.app.presentation.components.NonLinearCard
 import com.beatflow.app.presentation.components.TimeDomainCard
 import com.beatflow.app.presentation.theme.BeatFlowColors
-import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.data.Entry
-import com.github.mikephil.charting.data.LineData
-import com.github.mikephil.charting.data.LineDataSet
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -191,7 +183,7 @@ private fun ImportedDataContent(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("Archivo importado", fontWeight = FontWeight.Bold)
+                    Text("Archivo importado correctamente", fontWeight = FontWeight.Bold)
                     Text(
                         "${data.patientData.nombre} ${data.patientData.apellidos}",
                         style = MaterialTheme.typography.bodySmall,
@@ -205,29 +197,50 @@ private fun ImportedDataContent(
 
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
-                MetricDetailRow("Paciente", "${data.patientData.nombre} ${data.patientData.apellidos}")
+                Text("Paciente", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                Spacer(modifier = Modifier.height(8.dp))
+                MetricDetailRow("Nombre", "${data.patientData.nombre} ${data.patientData.apellidos}")
                 MetricDetailRow("Edad", "${data.patientData.edad} años")
                 MetricDetailRow("Sexo", data.patientData.sexo)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 MetricDetailRow("Inicio", dateFormat.format(Date(data.startTime)))
                 MetricDetailRow("Fin", dateFormat.format(Date(data.endTime)))
                 MetricDetailRow("Duración", formatDuration(data.durationMs))
-                MetricDetailRow("Latidos", "${data.records.size}")
             }
         }
 
         data.metrics?.let { metrics ->
             Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                "Análisis de Variabilidad de la Frecuencia Cardíaca",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             TimeDomainCard(metrics)
             Spacer(modifier = Modifier.height(12.dp))
             FrequencyDomainCard(metrics)
             Spacer(modifier = Modifier.height(12.dp))
             NonLinearCard(metrics)
-        }
-
-        if (data.records.isNotEmpty()) {
+        } ?: run {
             Spacer(modifier = Modifier.height(12.dp))
-            ImportEcgCard(data.records)
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Sin datos suficientes para el análisis HRV",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -249,70 +262,6 @@ private fun ImportedDataContent(
                 modifier = Modifier.weight(1f)
             ) {
                 Text("INICIO")
-            }
-        }
-    }
-}
-
-@Composable
-private fun ImportEcgCard(records: List<com.beatflow.app.domain.model.RawRecord>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.ShowChart,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "ECG", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-
-            val ecgEntries = records.mapIndexedNotNull { index, record ->
-                record.ecgSignal?.let { Entry(index.toFloat(), it.toFloat()) }
-            }
-
-            if (ecgEntries.isNotEmpty()) {
-                val chartData = LineData(LineDataSet(ecgEntries, "ECG").apply {
-                    color = BeatFlowColors.Primary.toArgb()
-                    setDrawCircles(false)
-                    lineWidth = 1.5f
-                    setDrawValues(false)
-                    mode = LineDataSet.Mode.LINEAR
-                })
-
-                AndroidView(
-                    factory = { ctx ->
-                        LineChart(ctx).apply {
-                            data = chartData
-                            description.isEnabled = false
-                            legend.isEnabled = false
-                            setScaleEnabled(true)
-                            setPinchZoom(true)
-                            axisLeft.setDrawGridLines(false)
-                            axisRight.isEnabled = false
-                            xAxis.setDrawGridLines(false)
-                            setVisibleXRangeMaximum(500f)
-                            moveViewToX(ecgEntries.size.toFloat())
-                            invalidate()
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                )
-            } else {
-                Text(
-                    "Sin datos de ECG",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
             }
         }
     }

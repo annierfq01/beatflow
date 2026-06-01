@@ -80,7 +80,9 @@ app/
 │   ├── domain/
 │   │   ├── model/                       # HrvSession, HrvMetrics, PatientData, RawRecord
 │   │   └── HrvCalculator.kt            # Cálculos HRV con FFT
-│   ├── export/FileExporter.kt          # Exportación a .hrv (CSV+JSON+ZIP)
+│   ├── export/
+│   │   ├── FileExporter.kt              # Exportación a .hrv (CSV+JSON+ZIP)
+│   │   └── FileImporter.kt              # Importación de .hrv
 │   ├── presentation/
 │   │   ├── main/                        # Pantalla principal (BLE)
 │   │   ├── measurement/                 # Pantalla de medición
@@ -96,33 +98,135 @@ app/
 
 ## Formato de exportación (.hrv)
 
-Archivo ZIP que contiene:
+El archivo `.hrv` es un **ZIP** que contiene cuatro archivos: tres CSVs separados por tipo de dato y un JSON con metadatos y métricas.
 
-### `raw_data.csv`
+### Estructura del ZIP
 
-Todas las muestras de sensores en formato CSV con las siguientes columnas:
+```
+archivo.hrv
+├── hr_data.csv        # Datos de frecuencia cardíaca
+├── rr_data.csv        # Intervalos RR
+├── ecg_data.csv       # Señal de ECG
+└── session.json       # Metadatos, paciente y métricas HRV
+```
+
+### `hr_data.csv`
+
+Frecuencia cardíaca instantánea en BPM por cada latido detectado.
 
 | Columna | Descripción | Ejemplo |
 |---|---|---|
 | `timestamp` | Unix timestamp en milisegundos (epoch) | `1717200000000` |
-| `hr` | Frecuencia cardíaca instantánea en BPM | `72` |
+| `hr` | Frecuencia cardíaca en BPM | `72` |
+
+```
+timestamp,hr
+1717200000000,72
+1717200000500,73
+1717200001000,71
+```
+
+### `rr_data.csv`
+
+Intervalo RR (tiempo entre latidos consecutivos) en milisegundos.
+
+| Columna | Descripción | Ejemplo |
+|---|---|---|
+| `timestamp` | Unix timestamp en milisegundos (epoch) | `1717200000000` |
 | `rr_ms` | Intervalo RR en milisegundos | `833.0` |
-| `ecg_signal` | Muestra de ECG en microvoltios (μV) | `-0.245` |
 
 ```
-timestamp,hr,rr_ms,ecg_signal
-1717200000000,72,833.0,-0.245
-1717200000000,72,,0.112
-1717200000000,,,0.087
+timestamp,rr_ms
+1717200000000,833.0
+1717200000500,820.5
+1717200001000,845.2
 ```
 
-- Las filas con HR llevan también RR (un valor por latido)
-- Las filas con ECG pueden tener múltiples muestras por latido (130 Hz)
-- Las celdas vacías indican que ese sensor no generó dato en esa muestra
+### `ecg_data.csv`
+
+Señal de ECG cruda en microvoltios (μV) muestreada a 130 Hz.
+
+| Columna | Descripción | Ejemplo |
+|---|---|---|
+| `timestamp` | Unix timestamp en milisegundos (epoch) | `1717200000000` |
+| `ecg_signal` | Tensión en microvoltios (μV) | `-0.245` |
+
+```
+timestamp,ecg_signal
+1717200000000,-0.245
+1717200000007,0.112
+1717200000015,0.087
+```
 
 ### `session.json`
 
-Datos del paciente, metadatos de sesión y métricas HRV en formato JSON.
+Objeto JSON con los siguientes campos:
+
+```json
+{
+  "patient": {
+    "nombre": "Juan",
+    "apellidos": "Pérez García",
+    "edad": 35,
+    "sexo": "Masculino"
+  },
+  "session": {
+    "startTime": "2025-06-01 10:30:00",
+    "endTime": "2025-06-01 10:35:00",
+    "durationMs": 300000,
+    "totalRecords": 1250
+  },
+  "metrics": {
+    "timeDomain": {
+      "meanHr": 72.5,
+      "sdnn": 48.3,
+      "rmssd": 32.1,
+      "pnn50": 12.5,
+      "pnn20": 35.2,
+      "nn50": 8.0,
+      "nn20": 22.0,
+      "maxHr": 145.0,
+      "minHr": 55.0
+    },
+    "frequencyDomain": {
+      "vlf": 1200.5,
+      "lf": 850.3,
+      "hf": 420.1,
+      "totalPower": 2470.9,
+      "lfHfRatio": 2.02,
+      "lfNu": 66.9,
+      "hfNu": 33.1
+    },
+    "nonLinear": {
+      "sd1": 22.7,
+      "sd2": 62.5,
+      "sd1Sd2Ratio": 0.36
+    }
+  },
+  "metadata": {
+    "app": "BeatFlow",
+    "version": "1.0.0",
+    "device": "Polar H10"
+  }
+}
+```
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `patient.nombre` | string | Nombre del paciente |
+| `patient.apellidos` | string | Apellidos del paciente |
+| `patient.edad` | int | Edad en años |
+| `patient.sexo` | string | Sexo del paciente |
+| `session.startTime` | string | Inicio de la sesión (yyyy-MM-dd HH:mm:ss) |
+| `session.endTime` | string | Fin de la sesión (yyyy-MM-dd HH:mm:ss) |
+| `session.durationMs` | long | Duración total en milisegundos |
+| `session.totalRecords` | int | Número total de registros (HR+RR+ECG combinados) |
+| `metrics.timeDomain.*` | double | Métricas de dominio temporal |
+| `metrics.frequencyDomain.*` | double | Métricas de dominio frecuencial (FFT) |
+| `metrics.nonLinear.*` | double | Métricas no lineales (Poincaré) |
+| `metadata.*` | string | Metadatos de la aplicación |
+
+El campo `metrics` es opcional: puede estar ausente si no hay suficientes datos de RR (< 30 latidos) para el cálculo HRV.
 
 ## Privacidad
 
