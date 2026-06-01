@@ -77,6 +77,7 @@ class PolarManager @Inject constructor(
     val foundDevices: StateFlow<List<PolarDevice>> = _foundDevices.asStateFlow()
 
     private var lastConnectedDeviceId: String? = null
+    private var btReceiver: BroadcastReceiver? = null
 
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
 
@@ -276,8 +277,6 @@ class PolarManager @Inject constructor(
         val deviceId = lastConnectedDeviceId ?: return
         startEcgStreaming(deviceId)
     }
-
-    private var btReceiver: BroadcastReceiver? = null
 
     fun cleanup() {
         scanDisposable?.dispose()
