@@ -7,6 +7,7 @@ import com.beatflow.app.bluetooth.PolarManager
 import com.beatflow.app.data.repository.SessionRepository
 import com.beatflow.app.domain.model.RawRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlin.concurrent.synchronized
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -154,5 +155,9 @@ class MeasurementViewModel @Inject constructor(
         timerJob?.cancel()
         ecgSaveJob?.cancel()
         flushRecords()
+    }
+
+    companion object {
+        private const val ECG_WINDOW_SIZE = 800
     }
 }
