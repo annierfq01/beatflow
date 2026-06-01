@@ -89,6 +89,9 @@ class PolarManager @Inject constructor(
     private val _isLocationEnabled = MutableStateFlow(true)
     val isLocationEnabled: StateFlow<Boolean> = _isLocationEnabled.asStateFlow()
 
+    private val _batteryLevel = MutableStateFlow(-1)
+    val batteryLevel: StateFlow<Int> = _batteryLevel.asStateFlow()
+
     init {
         api.setApiCallback(object : PolarBleApiCallback() {
             override fun blePowerStateChanged(powered: Boolean) {
@@ -160,7 +163,9 @@ class PolarManager @Inject constructor(
                 data: com.polar.sdk.api.model.PolarHealthThermometerData
             ) {}
 
-            override fun batteryLevelReceived(identifier: String, level: Int) {}
+            override fun batteryLevelReceived(identifier: String, level: Int) {
+                _batteryLevel.value = level
+            }
         })
 
         btReceiver = object : BroadcastReceiver() {

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Stop
@@ -12,9 +13,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -44,6 +47,7 @@ fun MeasurementScreen(
     val ecgBuffer by viewModel.ecgBuffer.collectAsState()
     val sessionDuration by viewModel.sessionDuration.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
+    val batteryLevel by viewModel.batteryLevel.collectAsState()
 
     var showStopConfirm by remember { mutableStateOf(false) }
     var stopAction by remember { mutableStateOf<String?>(null) }
@@ -64,6 +68,27 @@ fun MeasurementScreen(
                             showStopConfirm = true
                         }) {
                             Text("Cancelar", color = BeatFlowColors.HeartRed)
+                        }
+                    }
+                },
+                actions = {
+                    if (batteryLevel >= 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(end = 12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.BatteryFull,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = if (batteryLevel > 20) Color(0xFF4CAF50) else Color(0xFFFF5722)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "$batteryLevel%",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
                 }
@@ -87,9 +112,70 @@ fun MeasurementScreen(
 
             Box(modifier = Modifier.weight(1f)) {
                 when (selectedChart) {
-                    ChartType.ECG -> EcgChart(ecgBuffer)
-                    ChartType.HR -> HrChart(hrHistory)
-                    ChartType.RR -> RrChart(rrIntervals)
+                    ChartType.ECG -> {
+                        if (ecgBuffer.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        MaterialTheme.colorScheme.surface,
+                                        RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Esperando datos de ECG…\nConecta el sensor Polar H10",
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        } else {
+                            EcgChart(ecgBuffer)
+                        }
+                    }
+                    ChartType.HR -> {
+                        if (hrHistory.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        MaterialTheme.colorScheme.surface,
+                                        RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Esperando datos de frecuencia cardíaca…",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        } else {
+                            HrChart(hrHistory)
+                        }
+                    }
+                    ChartType.RR -> {
+                        if (rrIntervals.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        MaterialTheme.colorScheme.surface,
+                                        RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Esperando intervalos RR…",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        } else {
+                            RrChart(rrIntervals)
+                        }
+                    }
                 }
             }
 
@@ -243,6 +329,7 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                     }
                     axisRight.isEnabled = false
                     setTouchEnabled(true)
+                    setVisibleXRangeMaximum(60f)
 
                     val entries = hrHistory.mapIndexed { index, hr ->
                         Entry(index.toFloat(), hr.hr.toFloat())
@@ -284,6 +371,7 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                     chart.data = LineData(dataSet)
                     chart.notifyDataSetChanged()
                     chart.invalidate()
+                    chart.moveViewToX(entries.last().x)
                 }
             }
         )
@@ -317,6 +405,7 @@ private fun RrChart(rrIntervals: List<Double>) {
                     axisRight.isEnabled = false
                     setTouchEnabled(true)
                     setAutoScaleMinMaxEnabled(true)
+                    setVisibleXRangeMaximum(60f)
 
                     val entries = rrIntervals.mapIndexed { index, rr ->
                         Entry(index.toFloat(), rr.toFloat())
@@ -358,6 +447,7 @@ private fun RrChart(rrIntervals: List<Double>) {
                     chart.data = LineData(dataSet)
                     chart.notifyDataSetChanged()
                     chart.invalidate()
+                    chart.moveViewToX(entries.last().x)
                 }
             }
         )
@@ -382,6 +472,7 @@ private fun EcgChart(ecgSamples: List<Double>) {
                     setPinchZoom(true)
                     setDrawGridBackground(false)
                     setAutoScaleMinMaxEnabled(true)
+                    setVisibleXRangeMaximum(600f)
                     xAxis.apply {
                         setDrawGridLines(true)
                         gridColor = BeatFlowColors.ChartGrid.toArgb()
@@ -415,6 +506,7 @@ private fun EcgChart(ecgSamples: List<Double>) {
                         data = LineData(dataSet)
                         notifyDataSetChanged()
                         invalidate()
+                        moveViewToX(entries.last().x)
                     }
                 }
             },
@@ -435,6 +527,7 @@ private fun EcgChart(ecgSamples: List<Double>) {
                     chart.data = LineData(dataSet)
                     chart.notifyDataSetChanged()
                     chart.invalidate()
+                    chart.moveViewToX(entries.last().x)
                 }
             }
         )

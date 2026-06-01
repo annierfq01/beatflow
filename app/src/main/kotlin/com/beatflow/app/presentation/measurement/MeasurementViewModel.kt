@@ -37,6 +37,8 @@ class MeasurementViewModel @Inject constructor(
     private val _isRecording = MutableStateFlow(false)
     val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
+    val batteryLevel: StateFlow<Int> = polarManager.batteryLevel
+
     private var timerJob: Job? = null
     private var ecgSaveJob: Job? = null
     private var sessionStartTime: Long = 0L
