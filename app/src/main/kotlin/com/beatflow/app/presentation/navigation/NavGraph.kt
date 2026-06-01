@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.beatflow.app.presentation.importdata.ImportScreen
 import com.beatflow.app.presentation.main.MainScreen
 import com.beatflow.app.presentation.measurement.MeasurementScreen
 import com.beatflow.app.presentation.patient.PatientFormScreen
@@ -16,6 +17,7 @@ object Routes {
     const val MEASUREMENT = "measurement"
     const val PATIENT_FORM = "patient_form/{sessionId}"
     const val REPORT = "report/{sessionId}"
+    const val IMPORT = "import"
 
     fun patientForm(sessionId: Long) = "patient_form/$sessionId"
     fun report(sessionId: Long) = "report/$sessionId"
@@ -33,6 +35,18 @@ fun BeatFlowNavGraph() {
             MainScreen(
                 onNavigateToMeasurement = {
                     navController.navigate(Routes.MEASUREMENT)
+                },
+                onNavigateToImport = {
+                    navController.navigate(Routes.IMPORT)
+                }
+            )
+        }
+        composable(Routes.IMPORT) {
+            ImportScreen(
+                onNavigateHome = {
+                    navController.navigate(Routes.MAIN) {
+                        popUpTo(Routes.MAIN) { inclusive = true }
+                    }
                 }
             )
         }

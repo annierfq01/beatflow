@@ -20,6 +20,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.beatflow.app.domain.model.HrvMetrics
 import com.beatflow.app.domain.model.HrvSession
+import com.beatflow.app.presentation.components.FrequencyDomainCard
+import com.beatflow.app.presentation.components.NonLinearCard
+import com.beatflow.app.presentation.components.TimeDomainCard
 import com.beatflow.app.presentation.theme.BeatFlowColors
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.data.Entry
@@ -139,45 +142,6 @@ private fun PatientInfoCard(session: HrvSession) {
         MetricRow("Nombre", "${session.patientData.nombre} ${session.patientData.apellidos}")
         MetricRow("Edad", "${session.patientData.edad} años")
         MetricRow("Sexo", session.patientData.sexo)
-    }
-}
-
-@Composable
-private fun TimeDomainCard(metrics: HrvMetrics) {
-    MetricCard(
-        title = "Dominio del Tiempo",
-        icon = Icons.Default.Timer
-    ) {
-        MetricRow("Frecuencia cardíaca media", "%.1f BPM".format(metrics.meanHr))
-        MetricRow("FC Máxima", "%.1f BPM".format(metrics.maxHr))
-        MetricRow("FC Mínima", "%.1f BPM".format(metrics.minHr))
-        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-        MetricRow("SDNN", "%.2f ms".format(metrics.sdnn))
-        MetricRow("RMSSD", "%.2f ms".format(metrics.rmssd))
-        MetricRow("pNN50", "%.2f %%".format(metrics.pnn50))
-    }
-}
-
-@Composable
-private fun FrequencyDomainCard(metrics: HrvMetrics) {
-    MetricCard(
-        title = "Dominio de la Frecuencia",
-        icon = Icons.Default.Equalizer
-    ) {
-        MetricRow("LF (0.04-0.15 Hz)", "%.2f ms²".format(metrics.lf))
-        MetricRow("HF (0.15-0.4 Hz)", "%.2f ms²".format(metrics.hf))
-        MetricRow("Relación LF/HF", "%.2f".format(metrics.lfHfRatio))
-    }
-}
-
-@Composable
-private fun NonLinearCard(metrics: HrvMetrics) {
-    MetricCard(
-        title = "Métricas No Lineales",
-        icon = Icons.Default.ScatterPlot
-    ) {
-        MetricRow("SD1 (Poincaré)", "%.2f ms".format(metrics.sd1))
-        MetricRow("SD2 (Poincaré)", "%.2f ms".format(metrics.sd2))
     }
 }
 

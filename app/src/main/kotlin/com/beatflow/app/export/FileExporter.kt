@@ -92,17 +92,25 @@ class FileExporter @Inject constructor(
                         "sdnn" to metrics.sdnn,
                         "rmssd" to metrics.rmssd,
                         "pnn50" to metrics.pnn50,
+                        "pnn20" to metrics.pnn20,
+                        "nn50" to metrics.nn50,
+                        "nn20" to metrics.nn20,
                         "maxHr" to metrics.maxHr,
                         "minHr" to metrics.minHr
                     ),
                     "frequencyDomain" to mapOf(
+                        "vlf" to metrics.vlf,
                         "lf" to metrics.lf,
                         "hf" to metrics.hf,
-                        "lfHfRatio" to metrics.lfHfRatio
+                        "totalPower" to metrics.totalPower,
+                        "lfHfRatio" to metrics.lfHfRatio,
+                        "lfNu" to metrics.lfNu,
+                        "hfNu" to metrics.hfNu
                     ),
                     "nonLinear" to mapOf(
                         "sd1" to metrics.sd1,
-                        "sd2" to metrics.sd2
+                        "sd2" to metrics.sd2,
+                        "sd1Sd2Ratio" to metrics.sd1Sd2Ratio
                     )
                 )
             },

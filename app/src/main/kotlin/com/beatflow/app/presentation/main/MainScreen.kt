@@ -16,7 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothSearching
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -37,6 +39,7 @@ import com.beatflow.app.presentation.theme.BeatFlowColors
 @Composable
 fun MainScreen(
     onNavigateToMeasurement: () -> Unit,
+    onNavigateToImport: () -> Unit = {},
     viewModel: BluetoothViewModel = hiltViewModel()
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
@@ -51,6 +54,7 @@ fun MainScreen(
     var showDeviceDialog by remember { mutableStateOf(false) }
     var showBtDialog by remember { mutableStateOf(false) }
     var showLocationDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
     var isConnecting by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -85,111 +89,142 @@ fun MainScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Favorite,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = BeatFlowColors.HeartRed
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "BeatFlow",
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = BeatFlowColors.HeartRed
-            )
-
-            Text(
-                text = "Medidor de HRV",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            ConnectionStatusCard(connectionState)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = {
-                    if (connectionState !is ConnectionState.Connected) {
-                        viewModel.dismissMessage()
-                        if (!isBluetoothEnabled) {
-                            showBtDialog = true
-                        } else if (!isLocationEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            showLocationDialog = true
-                        } else {
-                            showDeviceDialog = true
-                            viewModel.startScan()
-                        }
-                    }
-                },
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { padding ->
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (connectionState is ConnectionState.Connected)
-                        BeatFlowColors.Success else MaterialTheme.colorScheme.primary
-                )
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    imageVector = when (connectionState) {
-                        is ConnectionState.Connected -> Icons.Default.BluetoothConnected
-                        is ConnectionState.Connecting -> Icons.Default.BluetoothSearching
-                        else -> Icons.Default.Bluetooth
-                    },
+                    imageVector = Icons.Default.Favorite,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(80.dp),
+                    tint = BeatFlowColors.HeartRed
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Text(
-                    text = when (connectionState) {
-                        is ConnectionState.Connected -> "CONECTADO"
-                        is ConnectionState.Connecting -> "CONECTANDO…"
-                        is ConnectionState.ConnectionFailed -> "RECONECTAR"
-                        else -> "BUSCAR DISPOSITIVOS"
+                    text = "BeatFlow",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = BeatFlowColors.HeartRed
+                )
+
+                Text(
+                    text = "Medidor de HRV",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                ConnectionStatusCard(connectionState)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        if (connectionState !is ConnectionState.Connected) {
+                            viewModel.dismissMessage()
+                            if (!isBluetoothEnabled) {
+                                showBtDialog = true
+                            } else if (!isLocationEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                showLocationDialog = true
+                            } else {
+                                showDeviceDialog = true
+                                viewModel.startScan()
+                            }
+                        }
                     },
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (connectionState is ConnectionState.Connected)
+                            BeatFlowColors.Success else MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        imageVector = when (connectionState) {
+                            is ConnectionState.Connected -> Icons.Default.BluetoothConnected
+                            is ConnectionState.Connecting -> Icons.Default.BluetoothSearching
+                            else -> Icons.Default.Bluetooth
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = when (connectionState) {
+                            is ConnectionState.Connected -> "CONECTADO"
+                            is ConnectionState.Connecting -> "CONECTANDO…"
+                            is ConnectionState.ConnectionFailed -> "RECONECTAR"
+                            else -> "BUSCAR DISPOSITIVOS"
+                        },
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onNavigateToMeasurement,
+                    enabled = connectionState is ConnectionState.Connected,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BeatFlowColors.HeartRed,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Text(
+                        text = "INICIAR MEDICIÓN",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (connectionState is ConnectionState.Connected)
+                            MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 48.dp, end = 4.dp)
+        ) {
+            IconButton(
+                onClick = onNavigateToImport,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FileOpen,
+                    contentDescription = "Importar datos",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = onNavigateToMeasurement,
-                enabled = connectionState is ConnectionState.Connected,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = BeatFlowColors.HeartRed,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+            IconButton(
+                onClick = { showAboutDialog = true },
+                modifier = Modifier.size(40.dp)
             ) {
-                Text(
-                    text = "INICIAR MEDICIÓN",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (connectionState is ConnectionState.Connected)
-                        MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Acerca de",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -306,21 +341,6 @@ fun MainScreen(
                     }
                 }
             }
-        )
-    }
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    var showAboutDialog by remember { mutableStateOf(false) }
-
-    TextButton(
-        onClick = { showAboutDialog = true },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = "Acerca de",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp
         )
     }
 

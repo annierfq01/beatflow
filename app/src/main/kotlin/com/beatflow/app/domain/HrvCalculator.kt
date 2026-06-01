@@ -24,35 +24,50 @@ object HrvCalculator {
         val rrDiffs = (1 until n).map { i -> abs(rrMs[i] - rrMs[i - 1]) }
         val rmssd = sqrt(rrDiffs.map { it.pow(2) }.average())
 
-        val pnn50 = (rrDiffs.count { it > 50.0 }.toDouble() / rrDiffs.size) * 100.0
+        val nn50 = rrDiffs.count { it > 50.0 }
+        val nn20 = rrDiffs.count { it > 20.0 }
+        val pnn50 = (nn50.toDouble() / rrDiffs.size) * 100.0
+        val pnn20 = (nn20.toDouble() / rrDiffs.size) * 100.0
 
         val minHr = 60000.0 / rrMs.max()
         val maxHr = 60000.0 / rrMs.min()
 
-        val (lf, hf) = calculateFrequencyDomain(rrMs)
+        val (vlf, lf, hf) = calculateFrequencyDomain(rrMs)
+        val totalPower = vlf + lf + hf
         val lfHfRatio = if (hf > 0.0) lf / hf else 0.0
+        val lfNu = if (totalPower - vlf > 0.0) (lf / (totalPower - vlf)) * 100.0 else 0.0
+        val hfNu = if (totalPower - vlf > 0.0) (hf / (totalPower - vlf)) * 100.0 else 0.0
 
         val sd1 = sqrt(rrDiffs.map { it.pow(2) }.average() / 2.0)
         val sd2 = sqrt(2.0 * sdnn.pow(2) - sd1.pow(2))
+        val sd1Sd2Ratio = sd1 / sd2
 
         return HrvMetrics(
             meanHr = meanHr,
             sdnn = sdnn,
             rmssd = rmssd,
             pnn50 = pnn50,
+            pnn20 = pnn20,
+            nn50 = nn50.toDouble(),
+            nn20 = nn20.toDouble(),
             maxHr = maxHr,
             minHr = minHr,
+            vlf = vlf,
             lf = lf,
             hf = hf,
+            totalPower = totalPower,
             lfHfRatio = lfHfRatio,
+            lfNu = lfNu,
+            hfNu = hfNu,
             sd1 = sd1,
-            sd2 = sd2
+            sd2 = sd2,
+            sd1Sd2Ratio = sd1Sd2Ratio
         )
     }
 
-    private fun calculateFrequencyDomain(rrMs: List<Double>): Pair<Double, Double> {
+    private fun calculateFrequencyDomain(rrMs: List<Double>): Triple<Double, Double, Double> {
         val n = rrMs.size
-        if (n < 4) return 0.0 to 0.0
+        if (n < 4) return Triple(0.0, 0.0, 0.0)
 
         val rrSeconds = rrMs.map { it / 1000.0 }
         val mean = rrSeconds.average()
@@ -64,9 +79,10 @@ object HrvCalculator {
 
         fft(real, imag)
 
-        val samplingPeriod = mean / 1000.0
+        val samplingPeriod = mean
         val freqResolution = 1.0 / (fftSize * samplingPeriod)
 
+        var vlf = 0.0
         var lf = 0.0
         var hf = 0.0
 
@@ -75,12 +91,13 @@ object HrvCalculator {
             val power = real[i].pow(2) + imag[i].pow(2)
 
             when {
+                freq in 0.0033..0.04 -> vlf += power
                 freq in 0.04..0.15 -> lf += power
                 freq in 0.15..0.4 -> hf += power
             }
         }
 
-        return lf to hf
+        return Triple(vlf, lf, hf)
     }
 
     private fun fft(real: DoubleArray, imag: DoubleArray) {
