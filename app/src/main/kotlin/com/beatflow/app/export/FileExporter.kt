@@ -56,37 +56,6 @@ class FileExporter @Inject constructor(
         return baos.toByteArray()
     }
 
-    fun exportSession(session: HrvSession): Result<File> = runCatching {
-        val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-        val timestamp = dateFormat.format(Date(session.startTime))
-        val nombre = session.patientData.nombre
-        val apellidos = session.patientData.apellidos
-        val fileName = "${timestamp}_${nombre}_${apellidos}.hrv"
-
-        val dir = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-            "HRV_Measurements"
-        )
-        if (!dir.exists()) dir.mkdirs()
-
-        val hrvFile = File(dir, fileName)
-
-        ZipOutputStream(FileOutputStream(hrvFile)).use { zos ->
-
-            val csvContent = buildCsv(session)
-            zos.putNextEntry(ZipEntry("raw_data.csv"))
-            zos.write(csvContent.toByteArray(Charsets.UTF_8))
-            zos.closeEntry()
-
-            val jsonContent = buildJson(session)
-            zos.putNextEntry(ZipEntry("session.json"))
-            zos.write(jsonContent.toByteArray(Charsets.UTF_8))
-            zos.closeEntry()
-        }
-
-        hrvFile
-    }
-
     private fun buildCsv(session: HrvSession): String {
         val sb = StringBuilder()
         sb.appendLine("timestamp,hr,rr_ms,ecg_signal")

@@ -1,72 +1,72 @@
-﻿2026-06-01T21:01:44.6470105Z ##[group]Run actions/checkout@v4
-2026-06-01T21:01:44.6471017Z with:
-2026-06-01T21:01:44.6471792Z   repository: annierfq01/beatflow
-2026-06-01T21:01:44.6476954Z   token: ***
-2026-06-01T21:01:44.6477431Z   ssh-strict: true
-2026-06-01T21:01:44.6477910Z   ssh-user: git
-2026-06-01T21:01:44.6478405Z   persist-credentials: true
-2026-06-01T21:01:44.6478943Z   clean: true
-2026-06-01T21:01:44.6479437Z   sparse-checkout-cone-mode: true
-2026-06-01T21:01:44.6479997Z   fetch-depth: 1
-2026-06-01T21:01:44.6480480Z   fetch-tags: false
-2026-06-01T21:01:44.6480961Z   show-progress: true
-2026-06-01T21:01:44.6481579Z   lfs: false
-2026-06-01T21:01:44.6482032Z   submodules: false
-2026-06-01T21:01:44.6482517Z   set-safe-directory: true
-2026-06-01T21:01:44.6483261Z ##[endgroup]
-2026-06-01T21:01:44.7653679Z Syncing repository: annierfq01/beatflow
-2026-06-01T21:01:44.7655771Z ##[group]Getting Git version info
-2026-06-01T21:01:44.7656561Z Working directory is '/home/runner/work/beatflow/beatflow'
-2026-06-01T21:01:44.7657709Z [command]/usr/bin/git version
-2026-06-01T21:01:44.7706699Z git version 2.54.0
-2026-06-01T21:01:44.7741889Z ##[endgroup]
-2026-06-01T21:01:44.7766664Z Temporarily overriding HOME='/home/runner/work/_temp/769d7329-2b7f-417b-a0ca-debae90afec7' before making global git config changes
-2026-06-01T21:01:44.7768293Z Adding repository directory to the temporary git global config as a safe directory
-2026-06-01T21:01:44.7771637Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/beatflow/beatflow
-2026-06-01T21:01:44.7820709Z Deleting the contents of '/home/runner/work/beatflow/beatflow'
-2026-06-01T21:01:44.7825628Z ##[group]Initializing the repository
-2026-06-01T21:01:44.7830492Z [command]/usr/bin/git init /home/runner/work/beatflow/beatflow
-2026-06-01T21:01:44.7924566Z hint: Using 'master' as the name for the initial branch. This default branch name
-2026-06-01T21:01:44.7926270Z hint: will change to "main" in Git 3.0. To configure the initial branch name
-2026-06-01T21:01:44.7927334Z hint: to use in all of your new repositories, which will suppress this warning,
-2026-06-01T21:01:44.7928186Z hint: call:
-2026-06-01T21:01:44.7928621Z hint:
-2026-06-01T21:01:44.7929550Z hint: 	git config --global init.defaultBranch <name>
-2026-06-01T21:01:44.7930568Z hint:
-2026-06-01T21:01:44.7931647Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
-2026-06-01T21:01:44.7933475Z hint: 'development'. The just-created branch can be renamed via this command:
-2026-06-01T21:01:44.7934850Z hint:
-2026-06-01T21:01:44.7935638Z hint: 	git branch -m <name>
-2026-06-01T21:01:44.7936671Z hint:
-2026-06-01T21:01:44.7937830Z hint: Disable this message with "git config set advice.defaultBranchName false"
-2026-06-01T21:01:44.7939750Z Initialized empty Git repository in /home/runner/work/beatflow/beatflow/.git/
-2026-06-01T21:01:44.7945415Z [command]/usr/bin/git remote add origin https://github.com/annierfq01/beatflow
-2026-06-01T21:01:44.7991081Z ##[endgroup]
-2026-06-01T21:01:44.7992699Z ##[group]Disabling automatic garbage collection
-2026-06-01T21:01:44.7997513Z [command]/usr/bin/git config --local gc.auto 0
-2026-06-01T21:01:44.8029884Z ##[endgroup]
-2026-06-01T21:01:44.8031413Z ##[group]Setting up auth
-2026-06-01T21:01:44.8038068Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-06-01T21:01:44.8073755Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-06-01T21:01:44.8418299Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-06-01T21:01:44.8450617Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-06-01T21:01:44.8682900Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-06-01T21:01:44.8715510Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-06-01T21:01:44.8949760Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
-2026-06-01T21:01:44.8985011Z ##[endgroup]
-2026-06-01T21:01:44.8985911Z ##[group]Fetching the repository
-2026-06-01T21:01:44.9059667Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a3208467ba65261add34bdd66fa1900131e35e48:refs/remotes/origin/main
-2026-06-01T21:01:45.1359639Z From https://github.com/annierfq01/beatflow
-2026-06-01T21:01:45.1362390Z  * [new ref]         a3208467ba65261add34bdd66fa1900131e35e48 -> origin/main
-2026-06-01T21:01:45.1397724Z ##[endgroup]
-2026-06-01T21:01:45.1399453Z ##[group]Determining the checkout info
-2026-06-01T21:01:45.1401642Z ##[endgroup]
-2026-06-01T21:01:45.1406227Z [command]/usr/bin/git sparse-checkout disable
-2026-06-01T21:01:45.1452159Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
-2026-06-01T21:01:45.1479451Z ##[group]Checking out the ref
-2026-06-01T21:01:45.1483401Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
-2026-06-01T21:01:45.1577534Z Switched to a new branch 'main'
-2026-06-01T21:01:45.1579937Z branch 'main' set up to track 'origin/main'.
-2026-06-01T21:01:45.1587256Z ##[endgroup]
-2026-06-01T21:01:45.1624997Z [command]/usr/bin/git log -1 --format=%H
-2026-06-01T21:01:45.1648933Z a3208467ba65261add34bdd66fa1900131e35e48
+﻿2026-06-01T21:13:13.2300443Z ##[group]Run actions/checkout@v4
+2026-06-01T21:13:13.2301382Z with:
+2026-06-01T21:13:13.2301872Z   repository: annierfq01/beatflow
+2026-06-01T21:13:13.2306561Z   token: ***
+2026-06-01T21:13:13.2307034Z   ssh-strict: true
+2026-06-01T21:13:13.2307712Z   ssh-user: git
+2026-06-01T21:13:13.2308204Z   persist-credentials: true
+2026-06-01T21:13:13.2308743Z   clean: true
+2026-06-01T21:13:13.2309241Z   sparse-checkout-cone-mode: true
+2026-06-01T21:13:13.2309809Z   fetch-depth: 1
+2026-06-01T21:13:13.2310322Z   fetch-tags: false
+2026-06-01T21:13:13.2310810Z   show-progress: true
+2026-06-01T21:13:13.2311327Z   lfs: false
+2026-06-01T21:13:13.2311783Z   submodules: false
+2026-06-01T21:13:13.2312269Z   set-safe-directory: true
+2026-06-01T21:13:13.2313007Z ##[endgroup]
+2026-06-01T21:13:13.3450849Z Syncing repository: annierfq01/beatflow
+2026-06-01T21:13:13.3453077Z ##[group]Getting Git version info
+2026-06-01T21:13:13.3453881Z Working directory is '/home/runner/work/beatflow/beatflow'
+2026-06-01T21:13:13.3455177Z [command]/usr/bin/git version
+2026-06-01T21:13:13.3503160Z git version 2.54.0
+2026-06-01T21:13:13.3527884Z ##[endgroup]
+2026-06-01T21:13:13.3542752Z Temporarily overriding HOME='/home/runner/work/_temp/3f85a759-376e-40d5-ae93-9711fa403249' before making global git config changes
+2026-06-01T21:13:13.3545283Z Adding repository directory to the temporary git global config as a safe directory
+2026-06-01T21:13:13.3555953Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/beatflow/beatflow
+2026-06-01T21:13:13.3600228Z Deleting the contents of '/home/runner/work/beatflow/beatflow'
+2026-06-01T21:13:13.3603997Z ##[group]Initializing the repository
+2026-06-01T21:13:13.3608144Z [command]/usr/bin/git init /home/runner/work/beatflow/beatflow
+2026-06-01T21:13:13.3694081Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-06-01T21:13:13.3696364Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-06-01T21:13:13.3698457Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-06-01T21:13:13.3699899Z hint: call:
+2026-06-01T21:13:13.3700446Z hint:
+2026-06-01T21:13:13.3701077Z hint: 	git config --global init.defaultBranch <name>
+2026-06-01T21:13:13.3701819Z hint:
+2026-06-01T21:13:13.3702521Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-06-01T21:13:13.3703602Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-06-01T21:13:13.3704463Z hint:
+2026-06-01T21:13:13.3704947Z hint: 	git branch -m <name>
+2026-06-01T21:13:13.3705528Z hint:
+2026-06-01T21:13:13.3706272Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-06-01T21:13:13.3707656Z Initialized empty Git repository in /home/runner/work/beatflow/beatflow/.git/
+2026-06-01T21:13:13.3711157Z [command]/usr/bin/git remote add origin https://github.com/annierfq01/beatflow
+2026-06-01T21:13:13.3752895Z ##[endgroup]
+2026-06-01T21:13:13.3754263Z ##[group]Disabling automatic garbage collection
+2026-06-01T21:13:13.3756787Z [command]/usr/bin/git config --local gc.auto 0
+2026-06-01T21:13:13.3786979Z ##[endgroup]
+2026-06-01T21:13:13.3788413Z ##[group]Setting up auth
+2026-06-01T21:13:13.3793333Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-06-01T21:13:13.3825977Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-06-01T21:13:13.4165944Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-06-01T21:13:13.4197333Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-06-01T21:13:13.4424112Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-06-01T21:13:13.4454579Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-06-01T21:13:13.4700174Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-06-01T21:13:13.4736124Z ##[endgroup]
+2026-06-01T21:13:13.4744447Z ##[group]Fetching the repository
+2026-06-01T21:13:13.4745966Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +453d8bdcb5bf17d0bc658d976920f0da130b99de:refs/remotes/origin/main
+2026-06-01T21:13:13.7102302Z From https://github.com/annierfq01/beatflow
+2026-06-01T21:13:13.7104364Z  * [new ref]         453d8bdcb5bf17d0bc658d976920f0da130b99de -> origin/main
+2026-06-01T21:13:13.7138164Z ##[endgroup]
+2026-06-01T21:13:13.7139860Z ##[group]Determining the checkout info
+2026-06-01T21:13:13.7141748Z ##[endgroup]
+2026-06-01T21:13:13.7146180Z [command]/usr/bin/git sparse-checkout disable
+2026-06-01T21:13:13.7192077Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-06-01T21:13:13.7220333Z ##[group]Checking out the ref
+2026-06-01T21:13:13.7224580Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-06-01T21:13:13.7318360Z Switched to a new branch 'main'
+2026-06-01T21:13:13.7320438Z branch 'main' set up to track 'origin/main'.
+2026-06-01T21:13:13.7328690Z ##[endgroup]
+2026-06-01T21:13:13.7366968Z [command]/usr/bin/git log -1 --format=%H
+2026-06-01T21:13:13.7390516Z 453d8bdcb5bf17d0bc658d976920f0da130b99de
