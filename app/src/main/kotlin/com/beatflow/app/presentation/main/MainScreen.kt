@@ -257,7 +257,6 @@ fun MainScreen(
             }
         )
     }
-}
 
     if (showBtDialog) {
         AlertDialog(
