@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.launch
@@ -279,7 +280,7 @@ private fun ImportEcgCard(records: List<com.beatflow.app.domain.model.RawRecord>
 
             if (ecgEntries.isNotEmpty()) {
                 val chartData = LineData(LineDataSet(ecgEntries, "ECG").apply {
-                    color = BeatFlowColors.Primary
+                    color = BeatFlowColors.Primary.toArgb()
                     setDrawCircles(false)
                     lineWidth = 1.5f
                     setDrawValues(false)

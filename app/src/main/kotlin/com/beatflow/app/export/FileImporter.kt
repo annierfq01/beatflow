@@ -142,7 +142,7 @@ class FileImporter @Inject constructor() {
             val parts = line.split(",")
             RawRecord(
                 timestamp = parts.getOrNull(0)?.toLongOrNull() ?: 0L,
-                hr = parts.getOrNull(1)?.toDoubleOrNull(),
+                hr = parts.getOrNull(1)?.toDoubleOrNull()?.toInt(),
                 rr = parts.getOrNull(2)?.toDoubleOrNull(),
                 ecgSignal = parts.getOrNull(3)?.toDoubleOrNull()
             )
