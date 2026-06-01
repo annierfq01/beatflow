@@ -112,14 +112,12 @@ class PolarManager @Inject constructor(
             override fun deviceDisconnected(polarDeviceInfo: PolarDeviceInfo) {
                 connectionTimeoutDisposable?.dispose()
                 connectionTimeoutDisposable = null
-                val previous = _connectionState.value
-                if (previous is ConnectionState.Connecting || previous is ConnectionState.Connected) {
-                    _connectionState.value = ConnectionState.ConnectionFailed(
-                        deviceId = previous.deviceId,
-                        message = "Conexión perdida"
-                    )
-                } else {
-                    _connectionState.value = ConnectionState.Disconnected
+                when (val previous = _connectionState.value) {
+                    is ConnectionState.Connecting -> _connectionState.value =
+                        ConnectionState.ConnectionFailed(previous.deviceId, "Conexión perdida")
+                    is ConnectionState.Connected -> _connectionState.value =
+                        ConnectionState.ConnectionFailed(previous.deviceId, "Conexión perdida")
+                    else -> _connectionState.value = ConnectionState.Disconnected
                 }
             }
 
