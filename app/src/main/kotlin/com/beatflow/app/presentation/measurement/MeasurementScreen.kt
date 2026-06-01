@@ -1,6 +1,5 @@
 package com.beatflow.app.presentation.measurement
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,27 +39,23 @@ fun MeasurementScreen(
     val isRecording by viewModel.isRecording.collectAsState()
 
     var showStopConfirm by remember { mutableStateOf(false) }
+    var stopAction by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.startSession()
     }
 
-    LaunchedEffect(isRecording) {
-        if (!isRecording && hrHistory.isNotEmpty()) {
-            onNavigateToPatientForm(viewModel.stopSession().also {
-                Log.d("Measurement", "Session stopped: $it")
-            })
-        }
-    }
-
     Scaffold(
-        topBar = {
+            topBar = {
             TopAppBar(
                 title = { Text("Medición en curso") },
                 navigationIcon = {
                     if (isRecording) {
-                        TextButton(onClick = { showStopConfirm = true }) {
-                            Text("Detener", color = BeatFlowColors.HeartRed)
+                        TextButton(onClick = {
+                            stopAction = "CANCEL"
+                            showStopConfirm = true
+                        }) {
+                            Text("Cancelar", color = BeatFlowColors.HeartRed)
                         }
                     }
                 }
@@ -95,7 +90,10 @@ fun MeasurementScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = { showStopConfirm = true },
+                onClick = {
+                    stopAction = "STOP"
+                    showStopConfirm = true
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(64.dp),
@@ -107,9 +105,10 @@ fun MeasurementScreen(
                 Icon(Icons.Default.Stop, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "DETENER MEDICIÓN",
+                    text = "DETENER",
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
                 )
             }
         }
@@ -118,14 +117,24 @@ fun MeasurementScreen(
     if (showStopConfirm) {
         AlertDialog(
             onDismissRequest = { showStopConfirm = false },
-            title = { Text("¿Detener medición?") },
-            text = { Text("La sesión de medición se detendrá y podrá ingresar los datos del paciente.") },
+            title = {
+                Text(if (stopAction == "CANCEL") "¿Cancelar medición?" else "¿Detener medición?")
+            },
+            text = {
+                Text(
+                    if (stopAction == "CANCEL") "Volverás al inicio."
+                    else "La sesión se guardará y podrás ingresar los datos del paciente."
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {
                         showStopConfirm = false
                         val sessionId = viewModel.stopSession()
-                        onNavigateToPatientForm(sessionId)
+                        when (stopAction) {
+                            "CANCEL" -> onNavigateBack()
+                            else -> onNavigateToPatientForm(sessionId)
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BeatFlowColors.HeartRed)
                 ) { Text("DETENER") }

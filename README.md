@@ -98,8 +98,31 @@ app/
 
 Archivo ZIP que contiene:
 
-- `raw_data.csv` — todas las muestras HR/RR/ECG con timestamp
-- `session.json` — datos del paciente, metadatos de sesión y métricas HRV
+### `raw_data.csv`
+
+Todas las muestras de sensores en formato CSV con las siguientes columnas:
+
+| Columna | Descripción | Ejemplo |
+|---|---|---|
+| `timestamp` | Unix timestamp en milisegundos (epoch) | `1717200000000` |
+| `hr` | Frecuencia cardíaca instantánea en BPM | `72` |
+| `rr_ms` | Intervalo RR en milisegundos | `833.0` |
+| `ecg_signal` | Muestra de ECG en microvoltios (μV) | `-0.245` |
+
+```
+timestamp,hr,rr_ms,ecg_signal
+1717200000000,72,833.0,-0.245
+1717200000000,72,,0.112
+1717200000000,,,0.087
+```
+
+- Las filas con HR llevan también RR (un valor por latido)
+- Las filas con ECG pueden tener múltiples muestras por latido (130 Hz)
+- Las celdas vacías indican que ese sensor no generó dato en esa muestra
+
+### `session.json`
+
+Datos del paciente, metadatos de sesión y métricas HRV en formato JSON.
 
 ## Privacidad
 
