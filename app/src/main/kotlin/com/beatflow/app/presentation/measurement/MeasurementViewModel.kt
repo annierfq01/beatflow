@@ -145,7 +145,7 @@ class MeasurementViewModel @Inject constructor(
                         ecgRingBuffer.addLast(value.toFloat())
                         if (ecgRingBuffer.size > ECG_CHART_SIZE) ecgRingBuffer.removeFirst()
                     }
-                    _ecgBuffer.value = ecgRingBuffer.toList()
+                    _ecgBuffer.value = ecgRingBuffer.map { it.toDouble() }
                 }
             }
         }
