@@ -21,6 +21,8 @@ class MeasurementViewModel @Inject constructor(
 ) : ViewModel() {
 
     private var _sessionId: Long? = null
+    private var lastEcgTimestamp: Long = 0L
+    private var accumulatedEcgCount = 0
 
     private val _hrHistory = MutableStateFlow<List<HrMeasurement>>(emptyList())
     val hrHistory: StateFlow<List<HrMeasurement>> = _hrHistory.asStateFlow()
@@ -38,7 +40,10 @@ class MeasurementViewModel @Inject constructor(
     val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
     private var timerJob: Job? = null
+    private var ecgSaveJob: Job? = null
     private var sessionStartTime: Long = 0L
+    private var lastEcgSnapshot: List<Double> = emptyList()
+    private var ecgIndex: Int = 0
     private val pendingRecords = mutableListOf<RawRecord>()
 
     fun startSession() {
@@ -47,7 +52,10 @@ class MeasurementViewModel @Inject constructor(
         _hrHistory.value = emptyList()
         _rrIntervals.value = emptyList()
         _ecgBuffer.value = emptyList()
+        lastEcgSnapshot = emptyList()
+        ecgIndex = 0
         pendingRecords.clear()
+        polarManager.startEcgStreaming()
 
         viewModelScope.launch {
             _sessionId = sessionRepository.createSession(sessionStartTime)
@@ -57,6 +65,33 @@ class MeasurementViewModel @Inject constructor(
             while (true) {
                 kotlinx.coroutines.delay(1000)
                 _sessionDuration.value = System.currentTimeMillis() - sessionStartTime
+            }
+        }
+
+        ecgSaveJob = viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(500)
+                val ecgData = lastEcgSnapshot
+                val timestamp = System.currentTimeMillis()
+                if (ecgData.isNotEmpty()) {
+                    val newSamples = if (ecgIndex < ecgData.size) {
+                        ecgData.drop(ecgIndex)
+                    } else emptyList()
+                    ecgIndex = ecgData.size
+                    newSamples.forEach { value ->
+                        pendingRecords.add(
+                            RawRecord(
+                                timestamp = timestamp,
+                                hr = null,
+                                rr = null,
+                                ecgSignal = value
+                            )
+                        )
+                    }
+                }
+                if (pendingRecords.size >= 50) {
+                    flushRecords()
+                }
             }
         }
 
@@ -89,6 +124,7 @@ class MeasurementViewModel @Inject constructor(
             polarManager.ecgSamples.collect { samples ->
                 if (samples.isNotEmpty()) {
                     _ecgBuffer.value = samples
+                    lastEcgSnapshot = samples
                 }
             }
         }
@@ -97,8 +133,8 @@ class MeasurementViewModel @Inject constructor(
     fun stopSession(): Long {
         _isRecording.value = false
         timerJob?.cancel()
+        ecgSaveJob?.cancel()
         flushRecords()
-        polarManager.disconnect()
         return _sessionId ?: -1L
     }
 
@@ -114,6 +150,7 @@ class MeasurementViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        ecgSaveJob?.cancel()
         flushRecords()
     }
 }

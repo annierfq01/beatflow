@@ -32,8 +32,9 @@ class BluetoothViewModel @Inject constructor(
 
         viewModelScope.launch {
             polarManager.startScanning().collect { device ->
-                // already handled in PolarManager internal
+                _foundDevices.value = _foundDevices.value + device
             }
+            _isScanning.value = false
         }
     }
 

@@ -35,6 +35,7 @@ fun MeasurementScreen(
 ) {
     val hrHistory by viewModel.hrHistory.collectAsState()
     val rrIntervals by viewModel.rrIntervals.collectAsState()
+    val ecgBuffer by viewModel.ecgBuffer.collectAsState()
     val sessionDuration by viewModel.sessionDuration.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
 
@@ -80,6 +81,11 @@ fun MeasurementScreen(
             HrChart(hrHistory)
 
             Spacer(modifier = Modifier.height(12.dp))
+
+            if (ecgBuffer.isNotEmpty()) {
+                EcgChart(ecgBuffer)
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             if (hrHistory.isNotEmpty()) {
                 val last = hrHistory.last()
@@ -230,6 +236,78 @@ private fun HrChart(hrHistory: List<HrMeasurement>) {
                         setDrawFilled(true)
                         fillColor = BeatFlowColors.ChartLine.toArgb()
                         fillAlpha = 30
+                    }
+                    chart.data = LineData(dataSet)
+                    chart.notifyDataSetChanged()
+                    chart.invalidate()
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun EcgChart(ecgSamples: List<Double>) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(160.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { context ->
+                LineChart(context).apply {
+                    description.isEnabled = false
+                    legend.isEnabled = false
+                    setScaleEnabled(false)
+                    setPinchZoom(false)
+                    setDrawGridBackground(false)
+                    xAxis.isEnabled = false
+                    axisLeft.apply {
+                        setDrawGridLines(false)
+                        isEnabled = false
+                    }
+                    axisRight.isEnabled = false
+                    setTouchEnabled(false)
+                    setAutoScaleMinMaxEnabled(true)
+
+                    val entries = ecgSamples.mapIndexed { index, value ->
+                        Entry(index.toFloat(), value.toFloat())
+                    }
+                    if (entries.isNotEmpty()) {
+                        val dataSet = LineDataSet(entries, "ECG").apply {
+                            color = android.graphics.Color.GREEN
+                            setCircleColor(android.graphics.Color.GREEN)
+                            circleRadius = 1f
+                            setDrawValues(false)
+                            lineWidth = 1.5f
+                            mode = LineDataSet.Mode.LINEAR
+                            setDrawFilled(true)
+                            fillColor = android.graphics.Color.GREEN
+                            fillAlpha = 20
+                        }
+                        data = LineData(dataSet)
+                        notifyDataSetChanged()
+                        invalidate()
+                    }
+                }
+            },
+            update = { chart ->
+                val entries = ecgSamples.mapIndexed { index, value ->
+                    Entry(index.toFloat(), value.toFloat())
+                }
+                if (entries.isNotEmpty()) {
+                    val dataSet = LineDataSet(entries, "ECG").apply {
+                        color = android.graphics.Color.GREEN
+                        setCircleColor(android.graphics.Color.GREEN)
+                        circleRadius = 1f
+                        setDrawValues(false)
+                        lineWidth = 1.5f
+                        mode = LineDataSet.Mode.LINEAR
+                        setDrawFilled(true)
+                        fillColor = android.graphics.Color.GREEN
+                        fillAlpha = 20
                     }
                     chart.data = LineData(dataSet)
                     chart.notifyDataSetChanged()

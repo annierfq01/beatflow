@@ -15,10 +15,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.beatflow.app.domain.model.HrvMetrics
 import com.beatflow.app.domain.model.HrvSession
 import com.beatflow.app.presentation.theme.BeatFlowColors
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -101,6 +106,8 @@ fun ReportScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         NonLinearCard(m)
                     }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    EcgReportCard(s)
                 }
             }
         }
@@ -226,6 +233,75 @@ private fun MetricRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
+    }
+}
+
+@Composable
+private fun EcgReportCard(session: HrvSession) {
+    val ecgValues = session.records.mapNotNull { it.ecgSignal?.toFloat() }
+
+    MetricCard(
+        title = "Señal ECG",
+        icon = Icons.Default.ShowChart
+    ) {
+        Text(
+            text = "${ecgValues.size} muestras registradas",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        if (ecgValues.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { context ->
+                        LineChart(context).apply {
+                            description.isEnabled = false
+                            legend.isEnabled = false
+                            setScaleEnabled(true)
+                            setPinchZoom(true)
+                            setDrawGridBackground(false)
+                            xAxis.isEnabled = false
+                            axisLeft.apply {
+                                setDrawGridLines(true)
+                                gridColor = BeatFlowColors.ChartGrid.toArgb()
+                                textColor = android.graphics.Color.GRAY
+                            }
+                            axisRight.isEnabled = false
+
+                            val displaySize = minOf(ecgValues.size, 500)
+                            val start = maxOf(0, ecgValues.size - displaySize)
+                            val entries = ecgValues.subList(start, ecgValues.size)
+                                .mapIndexed { index, value -> Entry(index.toFloat(), value) }
+                            val dataSet = LineDataSet(entries, "ECG").apply {
+                                color = android.graphics.Color.GREEN
+                                setCircleColor(android.graphics.Color.GREEN)
+                                circleRadius = 1f
+                                setDrawValues(false)
+                                lineWidth = 1.5f
+                                mode = LineDataSet.Mode.LINEAR
+                            }
+                            data = LineData(dataSet)
+                            notifyDataSetChanged()
+                            invalidate()
+                            setAutoScaleMinMaxEnabled(true)
+                            fitScreen()
+                        }
+                    }
+                )
+            }
+        } else {
+            Text(
+                text = "No se registraron datos de ECG",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

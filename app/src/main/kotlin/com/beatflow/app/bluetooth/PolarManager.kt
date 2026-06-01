@@ -141,11 +141,12 @@ class PolarManager @Inject constructor(
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(
                 { deviceInfo ->
-                    if (deviceInfo.name.startsWith("Polar")) {
+                    val name = deviceInfo.name?.trim()
+                    if (name != null && name.contains("Polar", ignoreCase = true)) {
                         val device = PolarDevice(
                             deviceId = deviceInfo.deviceId,
-                            name = deviceInfo.name,
-                            rssi = null
+                            name = name,
+                            rssi = deviceInfo.rssi
                         )
                         _foundDevices.value = _foundDevices.value + device
                         trySend(device)
@@ -175,6 +176,7 @@ class PolarManager @Inject constructor(
     }
 
     fun startEcgStreaming(deviceId: String) {
+        if (ecgDisposable != null) return
         val defaultSetting = PolarSensorSetting(
             mapOf(PolarSensorSetting.SettingType.SAMPLE_RATE to 130)
         )
@@ -186,6 +188,11 @@ class PolarManager @Inject constructor(
                 },
                 { _ -> }
             )
+    }
+
+    fun startEcgStreaming() {
+        val deviceId = lastConnectedDeviceId ?: return
+        startEcgStreaming(deviceId)
     }
 
     fun cleanup() {
