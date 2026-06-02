@@ -163,7 +163,10 @@ class MeasurementViewModel @Inject constructor(
         _isRecording.value = false
         timerJob?.cancel()
         ecgSaveJob?.cancel()
-        polarManager.stopEcgStreaming()
+        polarManager.stopAllStreaming()
+        _hrHistory.value = emptyList()
+        _rrIntervals.value = emptyList()
+        _ecgBuffer.value = emptyList()
         flushRecords()
         return _sessionId ?: -1L
     }
@@ -181,7 +184,7 @@ class MeasurementViewModel @Inject constructor(
         super.onCleared()
         timerJob?.cancel()
         ecgSaveJob?.cancel()
-        polarManager.stopEcgStreaming()
+        polarManager.stopAllStreaming()
         flushRecords()
     }
 

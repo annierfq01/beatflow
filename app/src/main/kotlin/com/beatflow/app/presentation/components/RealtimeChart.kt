@@ -1,28 +1,35 @@
 package com.beatflow.app.presentation.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.*
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlin.math.max
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
-/**
- * Componente de gráfico en tiempo real que simula un monitor médico.
- * 
- * Características:
- * - Líneas suaves que fluyen automáticamente (scroll horizontal)
- * - Grid dinámico con líneas de referencia
- * - Rendimiento optimizado con Canvas nativo
- * - Aspecto profesional de monitor ECG
- */
+private const val GRID_ROWS = 8
+private const val GRID_COLS = 10
+
 @Composable
 fun RealtimeChart(
     data: List<Float>,
@@ -31,149 +38,155 @@ fun RealtimeChart(
     lineColor: Color,
     gridColor: Color,
     title: String = "",
+    unit: String = "",
     modifier: Modifier = Modifier
 ) {
+    var tick by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(50L)
+            tick++
+        }
+    }
+
+    val displayData = remember(data, tick) { data.toList() }
+    val range = remember(maxValue, minValue) { if (maxValue - minValue < 0.001f) 1f else maxValue - minValue }
+    val textMeasurer = rememberTextMeasurer()
+
     Card(
         modifier = modifier.fillMaxSize(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val width = size.width
-            val height = size.height
-            val padding = 40f
-            val graphWidth = width - (padding * 2)
-            val graphHeight = height - (padding * 2)
+        Box(modifier = Modifier.fillMaxSize().padding(4.dp)) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val padding = 36f
+                val gw = size.width - padding * 2
+                val gh = size.height - padding * 2
 
-            // Dibujar grid de referencia
-            drawGrid(gridColor, padding, graphWidth, graphHeight)
+                drawChartGrid(gridColor, padding, gw, gh)
 
-            // Dibujar línea del gráfico con scroll automático
-            if (data.isNotEmpty()) {
-                drawRealTimeChart(
-                    data,
-                    minValue,
-                    maxValue,
-                    lineColor,
-                    padding,
-                    graphWidth,
-                    graphHeight
+                if (displayData.size >= 2) {
+                    drawChartTrace(displayData, minValue, maxValue, range, lineColor, padding, gw, gh)
+                } else {
+                    drawLine(
+                        color = lineColor.copy(alpha = 0.3f),
+                        start = Offset(padding, padding + gh / 2f),
+                        end = Offset(padding + gw, padding + gh / 2f),
+                        strokeWidth = 2f
+                    )
+                }
+
+                drawChartLabels(textMeasurer, minValue, maxValue, unit, padding, gw, gh)
+            }
+
+            if (title.isNotBlank()) {
+                Text(
+                    text = title,
+                    color = lineColor.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp
+                    ),
+                    modifier = Modifier.align(Alignment.TopStart).padding(start = 6.dp, top = 2.dp)
                 )
             }
 
-            // Dibujar ejes
-            drawAxes(padding, graphWidth, graphHeight, lineColor)
+            Text(
+                text = "${displayData.size} pts",
+                color = Color.White.copy(alpha = 0.3f),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 8.sp
+                ),
+                modifier = Modifier.align(Alignment.TopEnd).padding(end = 6.dp, top = 2.dp)
+            )
         }
     }
 }
 
-/**
- * Dibuja el grid de fondo similar a papel milimetrado de monitors médicos
- */
-private fun DrawScope.drawGrid(
-    gridColor: Color,
-    padding: Float,
-    graphWidth: Float,
-    graphHeight: Float
-) {
-    // Líneas horizontales (5 divisiones)
-    repeat(6) { i ->
-        val y = padding + (graphHeight / 5) * i
+private fun DrawScope.drawChartGrid(gridColor: Color, pad: Float, gw: Float, gh: Float) {
+    val colStep = gw / GRID_COLS
+    val rowStep = gh / GRID_ROWS
+    for (col in 0..GRID_COLS) {
         drawLine(
-            color = gridColor,
-            start = Offset(padding, y),
-            end = Offset(padding + graphWidth, y),
-            strokeWidth = 0.5f,
-            alpha = 0.5f
+            color = gridColor.copy(alpha = 0.4f),
+            start = Offset(pad + col * colStep, pad),
+            end = Offset(pad + col * colStep, pad + gh),
+            strokeWidth = if (col % 5 == 0) 0.8f else 0.4f
         )
     }
-
-    // Líneas verticales (10 divisiones para efecto de scroll)
-    repeat(11) { i ->
-        val x = padding + (graphWidth / 10) * i
+    for (row in 0..GRID_ROWS) {
         drawLine(
-            color = gridColor,
-            start = Offset(x, padding),
-            end = Offset(x, padding + graphHeight),
-            strokeWidth = 0.5f,
-            alpha = 0.5f
+            color = gridColor.copy(alpha = 0.4f),
+            start = Offset(pad, pad + row * rowStep),
+            end = Offset(pad + gw, pad + row * rowStep),
+            strokeWidth = if (row % 4 == 0) 0.8f else 0.4f
         )
     }
 }
 
-/**
- * Dibuja el gráfico en tiempo real con efecto de scrolling automático
- * similar a monitores médicos reales (ECG, frecuencia cardíaca, etc)
- */
-private fun DrawScope.drawRealTimeChart(
+private fun DrawScope.drawChartTrace(
     data: List<Float>,
     minValue: Float,
     maxValue: Float,
+    range: Float,
     lineColor: Color,
-    padding: Float,
-    graphWidth: Float,
-    graphHeight: Float
+    pad: Float,
+    gw: Float,
+    gh: Float
 ) {
-    if (data.size < 2) return
+    val n = data.size
+    val maxVisible = gw.toInt().coerceAtMost(n)
+    val startIdx = (n - maxVisible).coerceAtLeast(0)
+    val visibleCount = n - startIdx
+    if (visibleCount < 2) return
 
-    val range = maxOf(maxValue - minValue, 1f)
+    val xStep = gw / maxVisible.toFloat()
+    val xOffset = pad + (if (maxVisible > n) (maxVisible - n) * xStep else 0f)
 
-    // Calcular cuántos puntos se pueden mostrar en el ancho disponible
-    val visiblePoints = minOf(data.size, max(2, (graphWidth).toInt()))
-    val startIdx = maxOf(0, data.size - visiblePoints)
+    val path = Path()
+    var first = true
 
-    // Dibujar línea continua desde los últimos N puntos
-    // Esto crea el efecto de "scroll hacia la izquierda" del monitor
-    for (i in startIdx until data.size - 1) {
-        val relativeIdx = i - startIdx
-        val nextRelativeIdx = relativeIdx + 1
-
-        // Calcular posiciones X (distribuir uniformemente en el ancho disponible)
-        val x1 = padding + (relativeIdx.toFloat() / visiblePoints) * graphWidth
-        val x2 = padding + (nextRelativeIdx.toFloat() / visiblePoints) * graphWidth
-
-        // Normalizar valores Y entre 0 y 1, luego mapear a altura del gráfico
-        val normalizedY1 = (data[i] - minValue) / range
-        val normalizedY2 = (data[i + 1] - minValue) / range
-
-        // Invertir Y porque Canvas tiene origen en esquina superior izquierda
-        val y1 = padding + graphHeight - (normalizedY1 * graphHeight)
-        val y2 = padding + graphHeight - (normalizedY2 * graphHeight)
-
-        // Dibujar línea suave entre dos puntos consecutivos
-        drawLine(
-            color = lineColor,
-            start = Offset(x1, y1),
-            end = Offset(x2, y2),
-            strokeWidth = 2.5f
-        )
+    for (i in startIdx until n) {
+        val x = xOffset + (i - startIdx) * xStep
+        val normalized = (data[i] - minValue) / range
+        val y = pad + gh - (normalized * gh)
+        val clamped = y.coerceIn(pad, pad + gh)
+        if (first) {
+            path.moveTo(x, clamped)
+            first = false
+        } else {
+            path.lineTo(x, clamped)
+        }
     }
+
+    drawPath(path, lineColor.copy(alpha = 0.15f), style = Stroke(6f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(path, lineColor.copy(alpha = 0.5f), style = Stroke(3f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(path, lineColor, style = Stroke(1.8f, cap = StrokeCap.Round, join = StrokeJoin.Round))
 }
 
-/**
- * Dibuja los ejes del gráfico
- */
-private fun DrawScope.drawAxes(
-    padding: Float,
-    graphWidth: Float,
-    graphHeight: Float,
-    axisColor: Color
+private fun DrawScope.drawChartLabels(
+    textMeasurer: TextMeasurer,
+    minValue: Float,
+    maxValue: Float,
+    unit: String,
+    pad: Float,
+    gw: Float,
+    gh: Float
 ) {
-    // Eje X (horizontal)
-    drawLine(
-        color = axisColor,
-        start = Offset(padding, padding + graphHeight),
-        end = Offset(padding + graphWidth, padding + graphHeight),
-        strokeWidth = 1f,
-        alpha = 0.7f
+    val style = TextStyle(
+        color = Color.White.copy(alpha = 0.45f),
+        fontSize = 8.sp,
+        fontFamily = FontFamily.Monospace
     )
-
-    // Eje Y (vertical)
-    drawLine(
-        color = axisColor,
-        start = Offset(padding, padding),
-        end = Offset(padding, padding + graphHeight),
-        strokeWidth = 1f,
-        alpha = 0.7f
-    )
+    val rowStep = gh / GRID_ROWS
+    for (row in 0..GRID_ROWS) {
+        val y = pad + row * rowStep
+        val value = maxValue - (row.toFloat() / GRID_ROWS) * (maxValue - minValue)
+        val label = "%.0f %s".format(value, unit).trimEnd()
+        val measured = textMeasurer.measure(label, style)
+        drawText(textMeasurer, label, style, topLeft = Offset(3f, y - measured.size.height / 2f))
+    }
 }

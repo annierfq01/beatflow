@@ -53,9 +53,7 @@ class FileImporter @Inject constructor() {
             var entry = zis.nextEntry
             while (entry != null) {
                 when (entry.name) {
-                    "session.json" -> jsonContent = zis.bufferedReader().use { it.readText() }
-                    // Ignorar explícitamente hr_data.csv, rr_data.csv, ecg_data.csv
-                    // No se cargan datos brutos
+                    "session.json" -> jsonContent = zis.readBytes().decodeToString()
                 }
                 zis.closeEntry()
                 entry = zis.nextEntry

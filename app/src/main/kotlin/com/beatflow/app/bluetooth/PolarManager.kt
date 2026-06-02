@@ -130,6 +130,9 @@ class PolarManager @Inject constructor(
                 connectionTimeoutDisposable = null
                 ecgStreamingRetryCount = 0
                 pendingEcgStreamingDeviceId = null
+                isOnlineStreamingReady = false
+                _ecgSamples.value = emptyList()
+                _hrMeasurements.value = null
                 when (val previous = _connectionState.value) {
                     is ConnectionState.Connecting -> _connectionState.value =
                         ConnectionState.ConnectionFailed(previous.deviceId, "Conexión perdida")
@@ -403,6 +406,19 @@ class PolarManager @Inject constructor(
         ecgDisposable = null
         ecgStreamingRetryCount = 0
         pendingEcgStreamingDeviceId = null
+        _ecgSamples.value = emptyList()
+    }
+
+    fun stopHrStreaming() {
+        Log.d(TAG, "Stopping HR streaming")
+        hrDisposable?.dispose()
+        hrDisposable = null
+        _hrMeasurements.value = null
+    }
+
+    fun stopAllStreaming() {
+        stopEcgStreaming()
+        stopHrStreaming()
     }
 
     fun cleanup() {
