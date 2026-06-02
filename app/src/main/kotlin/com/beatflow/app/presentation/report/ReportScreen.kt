@@ -236,7 +236,10 @@ private fun EcgReportCard(session: HrvSession) {
                     maxValue = ecgValues.maxOrNull() ?: 2f,
                     lineColor = BeatFlowColors.Primary,
                     gridColor = BeatFlowColors.ChartGrid,
-                    title = "ECG (μV)"
+                    title = "ECG (μV)",
+                    unit = "μV",
+                    timeWindowSeconds = 5,
+                    maxVisiblePoints = 650
                 )
             }
         } else {

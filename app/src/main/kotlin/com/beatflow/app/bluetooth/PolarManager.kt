@@ -12,6 +12,7 @@ import android.util.Log
 import com.polar.sdk.api.PolarBleApi
 import com.polar.sdk.api.PolarBleApiCallback
 import com.polar.sdk.api.PolarBleApiDefaultImpl
+import com.polar.sdk.api.PolarDataType
 import com.polar.sdk.api.model.PolarDeviceInfo
 import com.polar.sdk.api.model.PolarHrData
 import com.polar.sdk.api.model.PolarSensorSetting
@@ -363,36 +364,40 @@ class PolarManager @Inject constructor(
             return
         }
         
-        try {
-            Log.d(TAG, "Starting ECG streaming for device: $deviceId")
-            val defaultSetting = PolarSensorSetting(
-                mapOf(PolarSensorSetting.SettingType.SAMPLE_RATE to 130)
-            )
-            ecgDisposable = api.startEcgStreaming(deviceId, defaultSetting)
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    { ecgData ->
-                        Log.d(TAG, "ECG data received: ${ecgData.samples.size} samples")
-                        _ecgSamples.value = ecgData.samples.map { sample ->
-                            when (sample) {
-                                is com.polar.sdk.api.model.EcgSample -> sample.voltage.toDouble()
-                                is com.polar.sdk.api.model.FecgSample -> sample.ecg.toDouble()
-                                else -> {
-                                    Log.w(TAG, "Unknown ECG sample type: ${sample::class.qualifiedName}")
-                                    0.0
-                                }
+        Log.d(TAG, "Starting ECG streaming for device: $deviceId")
+        ecgDisposable = api.requestStreamSettings(deviceId, PolarDataType.ECG)
+            .toFlowable()
+            .flatMap { settings ->
+                val best = settings.maxSettings()
+                Log.d(TAG, "ECG settings obtained: $best")
+                api.startEcgStreaming(deviceId, best)
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                { ecgData ->
+                    _ecgSamples.value = ecgData.samples.map { sample ->
+                        when (sample) {
+                            is com.polar.sdk.api.model.EcgSample -> sample.voltage.toDouble()
+                            is com.polar.sdk.api.model.FecgSample -> sample.ecg.toDouble()
+                            else -> {
+                                Log.w(TAG, "Unknown ECG sample type: ${sample::class.qualifiedName}")
+                                0.0
                             }
                         }
-                    },
-                    { error -> 
-                        Log.e(TAG, "ECG streaming error: ${error.message}", error)
-                        ecgDisposable = null
                     }
-                )
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception when starting ECG streaming: ${e.message}", e)
-            ecgDisposable = null
-        }
+                },
+                { error ->
+                    Log.e(TAG, "ECG streaming error: ${error.message}", error)
+                    ecgDisposable = null
+                    ecgStreamingRetryCount++
+                    if (ecgStreamingRetryCount <= MAX_ECG_RETRY_ATTEMPTS) {
+                        Log.d(TAG, "Retrying ECG streaming (attempt $ecgStreamingRetryCount)...")
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            startEcgStreaming(deviceId)
+                        }, 2000)
+                    }
+                }
+            )
     }
 
     fun startEcgStreaming() {

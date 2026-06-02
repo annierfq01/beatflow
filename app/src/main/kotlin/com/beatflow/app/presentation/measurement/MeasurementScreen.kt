@@ -308,7 +308,10 @@ private fun HrChart(hrBuffer: List<Float>) {
         maxValue = 250f,
         lineColor = BeatFlowColors.ChartLine,
         gridColor = BeatFlowColors.ChartGrid,
-        title = "Frecuencia Cardíaca (BPM)"
+        title = "Frecuencia Cardíaca (BPM)",
+        unit = "BPM",
+        timeWindowSeconds = 60,
+        maxVisiblePoints = 300
     )
 }
 
@@ -320,7 +323,10 @@ private fun RrChart(rrBuffer: List<Float>) {
         maxValue = 2000f,
         lineColor = BeatFlowColors.ChartLine,
         gridColor = BeatFlowColors.ChartGrid,
-        title = "Intervalos RR (ms)"
+        title = "Intervalos RR (ms)",
+        unit = "ms",
+        timeWindowSeconds = 60,
+        maxVisiblePoints = 300
     )
 }
 
@@ -332,7 +338,10 @@ private fun EcgChart(ecgSamples: List<Float>) {
         maxValue = 2f,
         lineColor = BeatFlowColors.Primary,
         gridColor = BeatFlowColors.ChartGrid,
-        title = "ECG (μV)"
+        title = "ECG (μV)",
+        unit = "μV",
+        timeWindowSeconds = 5,
+        maxVisiblePoints = 650
     )
 }
 

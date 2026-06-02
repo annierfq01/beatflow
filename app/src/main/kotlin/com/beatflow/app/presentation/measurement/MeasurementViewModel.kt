@@ -73,6 +73,7 @@ class MeasurementViewModel @Inject constructor(
         repeat(HR_BUFFER_SIZE) { hrRingBuffer.addLast(lastHr) }
         repeat(RR_BUFFER_SIZE) { rrRingBuffer.addLast(lastRr) }
         repeat(ECG_BUFFER_SIZE) { ecgRingBuffer.addLast(0f) }
+        _ecgBuffer.value = ecgRingBuffer.map { it.toDouble() }
 
         val connectedDeviceId = (polarManager.connectionState.value as? ConnectionState.Connected)?.deviceId
         if (connectedDeviceId != null) {
