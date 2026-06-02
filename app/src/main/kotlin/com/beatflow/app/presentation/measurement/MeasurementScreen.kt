@@ -14,20 +14,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.beatflow.app.bluetooth.HrMeasurement
+import com.beatflow.app.presentation.components.RealtimeChart
 import com.beatflow.app.presentation.theme.BeatFlowColors
-import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.data.Entry
-import com.github.mikephil.charting.data.LineData
-import com.github.mikephil.charting.data.LineDataSet
 
 enum class ChartType(val label: String) {
     ECG("ECG"),
@@ -133,7 +128,7 @@ fun MeasurementScreen(
                                 )
                             }
                         } else {
-                            EcgChart(ecgBuffer)
+                            EcgChart(ecgBuffer.map { it.toFloat() })
                         }
                     }
                     ChartType.HR -> {
@@ -307,179 +302,38 @@ private fun TimerCard(durationMs: Long) {
 
 @Composable
 private fun HrChart(hrBuffer: List<Float>) {
-    val visibleRange = MeasurementViewModel.HR_VISIBLE_RANGE
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                LineChart(ctx).apply {
-                    description.isEnabled = false
-                    legend.isEnabled = false
-                    setScaleYEnabled(true)
-                    setScaleXEnabled(false)
-                    setPinchZoom(true)
-                    setDragEnabled(true)
-                    setVisibleXRangeMaximum(visibleRange.toFloat())
-                    setDrawGridBackground(false)
-                    xAxis.apply {
-                        setDrawGridLines(true)
-                        gridColor = BeatFlowColors.ChartGrid.toArgb()
-                        textColor = android.graphics.Color.GRAY
-                        setDrawLabels(true)
-                        setLabelCount(5, true)
-                    }
-                    axisLeft.apply {
-                        axisMinimum = 0f
-                        axisMaximum = 250f
-                        setDrawGridLines(true)
-                        gridColor = BeatFlowColors.ChartGrid.toArgb()
-                        textColor = android.graphics.Color.GRAY
-                    }
-                    axisRight.isEnabled = false
-                }
-            },
-            update = { chart ->
-                val entries = hrBuffer.mapIndexed { i, v -> Entry(i.toFloat(), v) }
-                val dataSet = LineDataSet(entries, "HR").apply {
-                    color = BeatFlowColors.ChartLine.toArgb()
-                    setDrawCircles(false)
-                    setDrawValues(false)
-                    lineWidth = 2f
-                    mode = LineDataSet.Mode.LINEAR
-                    setDrawFilled(true)
-                    fillColor = BeatFlowColors.ChartLine.toArgb()
-                    fillAlpha = 25
-                }
-                chart.data = LineData(dataSet)
-                chart.setVisibleXRangeMaximum(visibleRange.toFloat())
-                chart.moveViewToX(hrBuffer.size.toFloat())
-                chart.notifyDataSetChanged()
-                chart.invalidate()
-            }
-        )
-    }
+    RealtimeChart(
+        data = hrBuffer,
+        minValue = 0f,
+        maxValue = 250f,
+        lineColor = BeatFlowColors.ChartLine,
+        gridColor = BeatFlowColors.ChartGrid,
+        title = "Frecuencia Cardíaca (BPM)"
+    )
 }
 
 @Composable
 private fun RrChart(rrBuffer: List<Float>) {
-    val visibleRange = MeasurementViewModel.RR_VISIBLE_RANGE
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                LineChart(ctx).apply {
-                    description.isEnabled = false
-                    legend.isEnabled = false
-                    setScaleYEnabled(true)
-                    setScaleXEnabled(false)
-                    setPinchZoom(true)
-                    setDragEnabled(true)
-                    setVisibleXRangeMaximum(visibleRange.toFloat())
-                    setDrawGridBackground(false)
-                    xAxis.apply {
-                        setDrawGridLines(true)
-                        gridColor = BeatFlowColors.ChartGrid.toArgb()
-                        textColor = android.graphics.Color.GRAY
-                        setDrawLabels(true)
-                        setLabelCount(5, true)
-                    }
-                    axisLeft.apply {
-                        axisMinimum = 0f
-                        axisMaximum = 2000f
-                        setDrawGridLines(true)
-                        gridColor = BeatFlowColors.ChartGrid.toArgb()
-                        textColor = android.graphics.Color.GRAY
-                    }
-                    axisRight.isEnabled = false
-                }
-            },
-            update = { chart ->
-                val entries = rrBuffer.mapIndexed { i, v -> Entry(i.toFloat(), v) }
-                val dataSet = LineDataSet(entries, "RR").apply {
-                    color = BeatFlowColors.ChartLine.toArgb()
-                    setDrawCircles(false)
-                    setDrawValues(false)
-                    lineWidth = 2f
-                    mode = LineDataSet.Mode.LINEAR
-                    setDrawFilled(true)
-                    fillColor = BeatFlowColors.ChartLine.toArgb()
-                    fillAlpha = 25
-                }
-                chart.data = LineData(dataSet)
-                chart.setVisibleXRangeMaximum(visibleRange.toFloat())
-                chart.moveViewToX(rrBuffer.size.toFloat())
-                chart.notifyDataSetChanged()
-                chart.invalidate()
-            }
-        )
-    }
+    RealtimeChart(
+        data = rrBuffer,
+        minValue = 0f,
+        maxValue = 2000f,
+        lineColor = BeatFlowColors.ChartLine,
+        gridColor = BeatFlowColors.ChartGrid,
+        title = "Intervalos RR (ms)"
+    )
 }
 
 @Composable
-private fun EcgChart(ecgSamples: List<Double>) {
-    val visibleRange = MeasurementViewModel.ECG_VISIBLE_RANGE
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                LineChart(ctx).apply {
-                    description.isEnabled = false
-                    legend.isEnabled = false
-                    setScaleYEnabled(true)
-                    setScaleXEnabled(false)
-                    setPinchZoom(true)
-                    setDragEnabled(true)
-                    setVisibleXRangeMaximum(visibleRange.toFloat())
-                    setDrawGridBackground(false)
-                    xAxis.apply {
-                        setDrawGridLines(true)
-                        gridColor = BeatFlowColors.ChartGrid.toArgb()
-                        textColor = android.graphics.Color.GRAY
-                        setDrawLabels(true)
-                        setLabelCount(5, true)
-                    }
-                    axisLeft.apply {
-                        axisMinimum = -2f
-                        axisMaximum = 2f
-                        setDrawGridLines(true)
-                        gridColor = BeatFlowColors.ChartGrid.toArgb()
-                        textColor = android.graphics.Color.GRAY
-                    }
-                    axisRight.isEnabled = false
-                }
-            },
-            update = { chart ->
-                val entries = ecgSamples.mapIndexed { i, v -> Entry(i.toFloat(), v.toFloat()) }
-                val dataSet = LineDataSet(entries, "ECG").apply {
-                    color = BeatFlowColors.Primary.toArgb()
-                    setDrawCircles(false)
-                    setDrawValues(false)
-                    lineWidth = 1.5f
-                    mode = LineDataSet.Mode.LINEAR
-                }
-                chart.data = LineData(dataSet)
-                chart.setVisibleXRangeMaximum(visibleRange.toFloat())
-                chart.moveViewToX(ecgSamples.size.toFloat())
-                chart.notifyDataSetChanged()
-                chart.invalidate()
-            }
-        )
-    }
+private fun EcgChart(ecgSamples: List<Float>) {
+    RealtimeChart(
+        data = ecgSamples,
+        minValue = -2f,
+        maxValue = 2f,
+        lineColor = BeatFlowColors.Primary,
+        gridColor = BeatFlowColors.ChartGrid,
+        title = "ECG (μV)"
+    )
 }
 
 @Composable
