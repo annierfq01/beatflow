@@ -187,6 +187,6 @@ private fun DrawScope.drawChartLabels(
         val value = maxValue - (row.toFloat() / GRID_ROWS) * (maxValue - minValue)
         val label = "%.0f %s".format(value, unit).trimEnd()
         val measured = textMeasurer.measure(label, style)
-        drawText(textMeasurer, label, style, topLeft = Offset(3f, y - measured.size.height / 2f))
+        drawText(textMeasurer, label, topLeft = Offset(3f, y - measured.size.height / 2f), style = style)
     }
 }
