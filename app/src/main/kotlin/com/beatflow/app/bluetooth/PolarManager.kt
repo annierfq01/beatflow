@@ -79,7 +79,11 @@ class PolarManager @Inject constructor(
     private var ecgDisposable: Disposable? = null
     private var hrDisposable: Disposable? = null
     private var connectionTimeoutDisposable: Disposable? = null
+    
     private var isOnlineStreamingReady = false
+    private var pendingEcgStreamingDeviceId: String? = null
+    private var ecgStreamingRetryCount = 0
+    private val MAX_ECG_RETRY_ATTEMPTS = 3
 
     private val _foundDevices = MutableStateFlow<List<PolarDevice>>(emptyList())
     val foundDevices: StateFlow<List<PolarDevice>> = _foundDevices.asStateFlow()
@@ -108,6 +112,7 @@ class PolarManager @Inject constructor(
             }
 
             override fun deviceConnected(polarDeviceInfo: PolarDeviceInfo) {
+                Log.d(TAG, "Device connected: ${polarDeviceInfo.deviceId}")
                 connectionTimeoutDisposable?.dispose()
                 connectionTimeoutDisposable = null
                 lastConnectedDeviceId = polarDeviceInfo.deviceId
@@ -115,12 +120,16 @@ class PolarManager @Inject constructor(
             }
 
             override fun deviceConnecting(polarDeviceInfo: PolarDeviceInfo) {
+                Log.d(TAG, "Device connecting: ${polarDeviceInfo.deviceId}")
                 _connectionState.value = ConnectionState.Connecting(polarDeviceInfo.deviceId)
             }
 
             override fun deviceDisconnected(polarDeviceInfo: PolarDeviceInfo) {
+                Log.d(TAG, "Device disconnected: ${polarDeviceInfo.deviceId}")
                 connectionTimeoutDisposable?.dispose()
                 connectionTimeoutDisposable = null
+                ecgStreamingRetryCount = 0
+                pendingEcgStreamingDeviceId = null
                 when (val previous = _connectionState.value) {
                     is ConnectionState.Connecting -> _connectionState.value =
                         ConnectionState.ConnectionFailed(previous.deviceId, "Conexión perdida")
@@ -135,6 +144,7 @@ class PolarManager @Inject constructor(
                 feature: PolarBleApi.PolarBleSdkFeature
             ) {
                 Log.d(TAG, "Feature ready: $feature for device $identifier")
+                
                 if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_HR) {
                     hrDisposable = api.startHrStreaming(identifier)
                         .observeOn(AndroidSchedulers.mainThread())
@@ -152,8 +162,17 @@ class PolarManager @Inject constructor(
                             { error -> Log.e(TAG, "HR streaming error: ${error.message}", error) }
                         )
                 }
+                
                 if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING) {
                     isOnlineStreamingReady = true
+                    Log.d(TAG, "ECG streaming is now ready!")
+                    
+                    // Si hay un dispositivo pendiente, inicia ECG ahora
+                    pendingEcgStreamingDeviceId?.let { deviceId ->
+                        Log.d(TAG, "Starting pending ECG streaming for device: $deviceId")
+                        startEcgStreamingInternal(deviceId)
+                        pendingEcgStreamingDeviceId = null
+                    }
                 }
             }
 
@@ -174,6 +193,7 @@ class PolarManager @Inject constructor(
             ) {}
 
             override fun batteryLevelReceived(identifier: String, level: Int) {
+                Log.d(TAG, "Battery level: $level%")
                 _batteryLevel.value = level
             }
         })
@@ -316,35 +336,60 @@ class PolarManager @Inject constructor(
     fun disconnect() {
         hrDisposable?.dispose()
         ecgDisposable?.dispose()
+        ecgStreamingRetryCount = 0
+        pendingEcgStreamingDeviceId = null
         val deviceId = lastConnectedDeviceId ?: return
         api.disconnectFromDevice(deviceId)
     }
 
     fun startEcgStreaming(deviceId: String) {
-        if (ecgDisposable != null) return
-        if (!isOnlineStreamingReady) {
-            Log.w(TAG, "ECG streaming requested but FEATURE_POLAR_ONLINE_STREAMING not ready yet")
+        Log.d(TAG, "startEcgStreaming called for device: $deviceId (isOnlineStreamingReady: $isOnlineStreamingReady)")
+        
+        if (isOnlineStreamingReady) {
+            startEcgStreamingInternal(deviceId)
+        } else {
+            Log.w(TAG, "ECG streaming requested but FEATURE_POLAR_ONLINE_STREAMING not ready yet. Queueing request...")
+            pendingEcgStreamingDeviceId = deviceId
+            ecgStreamingRetryCount = 0
         }
-        val defaultSetting = PolarSensorSetting(
-            mapOf(PolarSensorSetting.SettingType.SAMPLE_RATE to 130)
-        )
-        ecgDisposable = api.startEcgStreaming(deviceId, defaultSetting)
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(
-                { ecgData ->
-                    _ecgSamples.value = ecgData.samples.map { sample ->
-                        when (sample) {
-                            is com.polar.sdk.api.model.EcgSample -> sample.voltage.toDouble()
-                            is com.polar.sdk.api.model.FecgSample -> sample.ecg.toDouble()
-                            else -> {
-                                Log.w(TAG, "Unknown ECG sample type: ${sample::class.qualifiedName}")
-                                0.0
+    }
+
+    private fun startEcgStreamingInternal(deviceId: String) {
+        if (ecgDisposable != null) {
+            Log.w(TAG, "ECG streaming already active")
+            return
+        }
+        
+        try {
+            Log.d(TAG, "Starting ECG streaming for device: $deviceId")
+            val defaultSetting = PolarSensorSetting(
+                mapOf(PolarSensorSetting.SettingType.SAMPLE_RATE to 130)
+            )
+            ecgDisposable = api.startEcgStreaming(deviceId, defaultSetting)
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                    { ecgData ->
+                        Log.d(TAG, "ECG data received: ${ecgData.samples.size} samples")
+                        _ecgSamples.value = ecgData.samples.map { sample ->
+                            when (sample) {
+                                is com.polar.sdk.api.model.EcgSample -> sample.voltage.toDouble()
+                                is com.polar.sdk.api.model.FecgSample -> sample.ecg.toDouble()
+                                else -> {
+                                    Log.w(TAG, "Unknown ECG sample type: ${sample::class.qualifiedName}")
+                                    0.0
+                                }
                             }
                         }
+                    },
+                    { error -> 
+                        Log.e(TAG, "ECG streaming error: ${error.message}", error)
+                        ecgDisposable = null
                     }
-                },
-                { error -> Log.e(TAG, "ECG streaming error: ${error.message}", error) }
-            )
+                )
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception when starting ECG streaming: ${e.message}", e)
+            ecgDisposable = null
+        }
     }
 
     fun startEcgStreaming() {
@@ -353,8 +398,11 @@ class PolarManager @Inject constructor(
     }
 
     fun stopEcgStreaming() {
+        Log.d(TAG, "Stopping ECG streaming")
         ecgDisposable?.dispose()
         ecgDisposable = null
+        ecgStreamingRetryCount = 0
+        pendingEcgStreamingDeviceId = null
     }
 
     fun cleanup() {
