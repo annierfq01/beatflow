@@ -14,23 +14,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.beatflow.app.domain.model.HrvMetrics
 import com.beatflow.app.domain.model.HrvSession
 import com.beatflow.app.presentation.components.FrequencyDomainCard
 import com.beatflow.app.presentation.components.NonLinearCard
+import com.beatflow.app.presentation.components.RealtimeChart
 import com.beatflow.app.presentation.components.TimeDomainCard
 import com.beatflow.app.presentation.theme.BeatFlowColors
-import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.data.Entry
-import com.github.mikephil.charting.data.LineData
-import com.github.mikephil.charting.data.LineDataSet
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -230,48 +225,18 @@ private fun EcgReportCard(session: HrvSession) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         if (ecgValues.isNotEmpty()) {
-            Card(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    .height(200.dp)
             ) {
-                AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { context ->
-                        LineChart(context).apply {
-                            description.isEnabled = false
-                            legend.isEnabled = false
-                            setScaleEnabled(true)
-                            setPinchZoom(true)
-                            setDrawGridBackground(false)
-                            xAxis.isEnabled = false
-                            axisLeft.apply {
-                                setDrawGridLines(true)
-                                gridColor = BeatFlowColors.ChartGrid.toArgb()
-                                textColor = android.graphics.Color.GRAY
-                            }
-                            axisRight.isEnabled = false
-
-                            val displaySize = minOf(ecgValues.size, 500)
-                            val start = maxOf(0, ecgValues.size - displaySize)
-                            val entries = ecgValues.subList(start, ecgValues.size)
-                                .mapIndexed { index, value -> Entry(index.toFloat(), value) }
-                            val dataSet = LineDataSet(entries, "ECG").apply {
-                                color = android.graphics.Color.GREEN
-                                setCircleColor(android.graphics.Color.GREEN)
-                                circleRadius = 1f
-                                setDrawValues(false)
-                                lineWidth = 1.5f
-                                mode = LineDataSet.Mode.LINEAR
-                            }
-                            data = LineData(dataSet)
-                            notifyDataSetChanged()
-                            invalidate()
-                            setAutoScaleMinMaxEnabled(true)
-                            fitScreen()
-                        }
-                    }
+                RealtimeChart(
+                    data = ecgValues,
+                    minValue = ecgValues.minOrNull() ?: -2f,
+                    maxValue = ecgValues.maxOrNull() ?: 2f,
+                    lineColor = BeatFlowColors.Primary,
+                    gridColor = BeatFlowColors.ChartGrid,
+                    title = "ECG (μV)"
                 )
             }
         } else {
