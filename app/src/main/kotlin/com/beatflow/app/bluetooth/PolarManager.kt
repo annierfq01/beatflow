@@ -12,7 +12,6 @@ import android.util.Log
 import com.polar.sdk.api.PolarBleApi
 import com.polar.sdk.api.PolarBleApiCallback
 import com.polar.sdk.api.PolarBleApiDefaultImpl
-import com.polar.sdk.api.PolarDataType
 import com.polar.sdk.api.model.PolarDeviceInfo
 import com.polar.sdk.api.model.PolarHrData
 import com.polar.sdk.api.model.PolarSensorSetting
@@ -365,13 +364,10 @@ class PolarManager @Inject constructor(
         }
         
         Log.d(TAG, "Starting ECG streaming for device: $deviceId")
-        ecgDisposable = api.requestStreamSettings(deviceId, PolarDataType.ECG)
-            .toFlowable()
-            .flatMap { settings ->
-                val best = settings.maxSettings()
-                Log.d(TAG, "ECG settings obtained: $best")
-                api.startEcgStreaming(deviceId, best)
-            }
+        val settings = PolarSensorSetting(
+            mapOf(PolarSensorSetting.SettingType.SAMPLE_RATE to 130)
+        )
+        ecgDisposable = api.startEcgStreaming(deviceId, settings)
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(
                 { ecgData ->
@@ -379,10 +375,7 @@ class PolarManager @Inject constructor(
                         when (sample) {
                             is com.polar.sdk.api.model.EcgSample -> sample.voltage.toDouble()
                             is com.polar.sdk.api.model.FecgSample -> sample.ecg.toDouble()
-                            else -> {
-                                Log.w(TAG, "Unknown ECG sample type: ${sample::class.qualifiedName}")
-                                0.0
-                            }
+                            else -> 0.0
                         }
                     }
                 },
