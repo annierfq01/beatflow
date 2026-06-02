@@ -88,8 +88,5 @@ dependencies {
     implementation(libs.rxjava3)
     implementation(libs.rxandroid3)
 
-    // MPAndroidChart
-    implementation(libs.mpandroidchart)
-
     debugImplementation(libs.androidx.ui.tooling)
 }
