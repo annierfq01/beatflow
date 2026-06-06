@@ -10,12 +10,15 @@ import kotlin.math.abs
 
 object HrvCalculator {
 
+    private const val MIN_SAMPLES_TIME = 30
+    private const val RECOMMENDED_SAMPLES_FREQ = 300
+    private const val RESAMPLE_HZ = 4.0
+
     fun calculate(rrIntervals: List<Double>): HrvMetrics? {
-        if (rrIntervals.size < 30) return null
+        val rrMs = filterArtifacts(rrIntervals)
+        if (rrMs.size < MIN_SAMPLES_TIME) return null
 
-        val rrMs = rrIntervals
         val n = rrMs.size
-
         val meanRr = rrMs.average()
         val meanHr = 60000.0 / meanRr
 
@@ -32,15 +35,17 @@ object HrvCalculator {
         val minHr = 60000.0 / rrMs.max()
         val maxHr = 60000.0 / rrMs.min()
 
+        val sd1 = rmssd / sqrt(2.0)
+        val sd2 = sqrt((2.0 * sdnn.pow(2)) - sd1.pow(2))
+        val sd1Sd2Ratio = if (sd2 > 0.0) sd1 / sd2 else 0.0
+
+        val freqWarning = rrMs.size < RECOMMENDED_SAMPLES_FREQ
         val (vlf, lf, hf) = calculateFrequencyDomain(rrMs)
+
         val totalPower = vlf + lf + hf
         val lfHfRatio = if (hf > 0.0) lf / hf else 0.0
         val lfNu = if (totalPower - vlf > 0.0) (lf / (totalPower - vlf)) * 100.0 else 0.0
         val hfNu = if (totalPower - vlf > 0.0) (hf / (totalPower - vlf)) * 100.0 else 0.0
-
-        val sd1 = sqrt(rrDiffs.map { it.pow(2) }.average() / 2.0)
-        val sd2 = sqrt(2.0 * sdnn.pow(2) - sd1.pow(2))
-        val sd1Sd2Ratio = sd1 / sd2
 
         return HrvMetrics(
             meanHr = meanHr,
@@ -61,8 +66,20 @@ object HrvCalculator {
             hfNu = hfNu,
             sd1 = sd1,
             sd2 = sd2,
-            sd1Sd2Ratio = sd1Sd2Ratio
+            sd1Sd2Ratio = sd1Sd2Ratio,
+            freqWarning = freqWarning
         )
+    }
+
+    fun filterArtifacts(rr: List<Double>): List<Double> {
+        val physiological = rr.filter { it in 300.0..2000.0 }
+        return physiological.filterIndexed { i, value ->
+            if (i == 0) true
+            else {
+                val prev = physiological[i - 1]
+                abs(value - prev) / prev < 0.20
+            }
+        }
     }
 
     private fun calculateFrequencyDomain(rrMs: List<Double>): Triple<Double, Double, Double> {
@@ -70,25 +87,67 @@ object HrvCalculator {
         if (n < 4) return Triple(0.0, 0.0, 0.0)
 
         val rrSeconds = rrMs.map { it / 1000.0 }
+
+        // 1. Mean detrend
         val mean = rrSeconds.average()
         val detrended = rrSeconds.map { it - mean }
 
-        val fftSize = nextPowerOfTwo(n)
-        val real = DoubleArray(fftSize) { if (it < n) detrended[it] else 0.0 }
+        // 2. Cumulative time axis (seconds)
+        val tCum = DoubleArray(n)
+        tCum[0] = rrSeconds[0]
+        for (i in 1 until n) tCum[i] = tCum[i - 1] + rrSeconds[i]
+
+        // 3. Uniform grid at RESAMPLE_HZ
+        val step = 1.0 / RESAMPLE_HZ
+        val tStart = tCum.first()
+        val tEnd = tCum.last()
+        val tUniform = mutableListOf<Double>()
+        var t = tStart
+        while (t <= tEnd) { tUniform.add(t); t += step }
+        val mUniform = tUniform.size
+
+        // 4. Linear interpolation
+        val rrUniform = DoubleArray(mUniform) { k ->
+            val tk = tUniform[k]
+            var idx = 1
+            while (idx < n && tCum[idx] < tk) idx++
+            if (idx >= n) idx = n - 1
+            val t0 = tCum[idx - 1]; val t1 = tCum[idx]
+            val y0 = detrended[idx - 1]; val y1 = detrended[idx]
+            if (t1 - t0 == 0.0) y0
+            else y0 + (y1 - y0) * (tk - t0) / (t1 - t0)
+        }
+
+        // 5. Prepare for FFT
+        val fftSize = nextPowerOfTwo(mUniform)
+        val real = DoubleArray(fftSize) { if (it < mUniform) rrUniform[it] else 0.0 }
         val imag = DoubleArray(fftSize)
+
+        // 6. Hann window on valid data (not zero padding)
+        for (i in 0 until mUniform) {
+            val hann = 0.5 * (1.0 - cos(2.0 * PI * i / (mUniform - 1)))
+            real[i] *= hann
+        }
 
         fft(real, imag)
 
-        val samplingPeriod = mean
+        // 7. Frequency resolution (fixed after resampling)
+        val samplingPeriod = 1.0 / RESAMPLE_HZ
         val freqResolution = 1.0 / (fftSize * samplingPeriod)
+
+        // 8. Window correction factor (sum of squared Hann coefficients)
+        val windowCorrection = (0 until mUniform).sumOf {
+            val h = 0.5 * (1.0 - cos(2.0 * PI * it / (mUniform - 1)))
+            h * h
+        }
 
         var vlf = 0.0
         var lf = 0.0
         var hf = 0.0
 
-        for (i in 0 until fftSize / 2) {
+        for (i in 1 until fftSize / 2) {
             val freq = i * freqResolution
-            val power = real[i].pow(2) + imag[i].pow(2)
+            val power = 2.0 * (real[i].pow(2) + imag[i].pow(2)) / windowCorrection
 
             when {
                 freq in 0.0033..0.04 -> vlf += power

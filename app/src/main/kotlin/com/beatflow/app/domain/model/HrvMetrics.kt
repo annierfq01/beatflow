@@ -22,5 +22,6 @@ data class HrvMetrics(
     val hfNu: Double,
     val sd1: Double,
     val sd2: Double,
-    val sd1Sd2Ratio: Double
+    val sd1Sd2Ratio: Double,
+    val freqWarning: Boolean = false
 )

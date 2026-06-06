@@ -39,6 +39,31 @@ fun FrequencyDomainCard(metrics: HrvMetrics) {
         title = "Dominio de la Frecuencia",
         icon = Icons.Default.Equalizer
     ) {
+        if (metrics.freqWarning) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "Registro < 5 min. Los valores de frecuencia pueden no ser fiables.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
         MetricRow("VLF (0.0033-0.04 Hz)", "%.2f ms²".format(metrics.vlf))
         MetricRow("LF (0.04-0.15 Hz)", "%.2f ms²".format(metrics.lf))
         MetricRow("HF (0.15-0.4 Hz)", "%.2f ms²".format(metrics.hf))

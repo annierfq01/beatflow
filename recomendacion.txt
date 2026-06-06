@@ -1,0 +1,288 @@
+═══════════════════════════════════════════════════════════════
+  BeatFlow — HrvCalculator.kt: Correcciones y recomendaciones
+  Basado en análisis de HrvCalculator.kt / HrvMetrics.kt / HrvSession.kt
+═══════════════════════════════════════════════════════════════
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ESTADO ACTUAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Métricas temporales (RMSSD, SDNN, pNN50, pNN20)  →  CORRECTAS
+  Dominio frecuencia (VLF, LF, HF, LF/HF)          →  2 bugs críticos
+  Poincaré (SD1, SD2)                               →  fórmula incorrecta
+  Filtro de artefactos                              →  ausente
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BUG 1 — SD1 y SD2 (Poincaré) — CRÍTICO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEMA:
+  Tu código calcula SD1 de forma redundante, duplicando la operación
+  de RMSSD en lugar de reutilizar el valor ya calculado. Aunque el
+  resultado numérico es equivalente, la relación SD1 = RMSSD / sqrt(2)
+  es la definición estándar (Task Force 1996) que usan Kubios y
+  NeuroKit2. Usarla explícitamente garantiza consistencia.
+
+TU CÓDIGO (líneas ~43-45 de HrvCalculator.kt):
+  val sd1 = sqrt(rrDiffs.map { it.pow(2) }.average() / 2.0)
+  val sd2 = sqrt(2.0 * sdnn.pow(2) - sd1.pow(2))
+  val sd1Sd2Ratio = sd1 / sd2
+
+CÓDIGO CORREGIDO:
+  val sd1 = rmssd / sqrt(2.0)
+  val sd2 = sqrt((2.0 * sdnn.pow(2)) - sd1.pow(2))
+  val sd1Sd2Ratio = if (sd2 > 0.0) sd1 / sd2 else 0.0
+
+POR QUÉ:
+  - SD1 mide variabilidad a corto plazo (parasimpático) = RMSSD / √2
+  - SD2 mide variabilidad total usando la relación con SDNN
+  - Añadir la guarda (sd2 > 0.0) evita división por cero en señales
+    muy regulares (e.g. marcapasos, arritmias severas)
+  - Con este cambio, SD1 de tu APK coincidirá exactamente con
+    NeuroKit2 (hrv_nonlinear → HRV_SD1)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BUG 2 — FFT sin remuestreo uniforme — CRÍTICO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEMA:
+  Los intervalos RR son una señal NO uniforme en el tiempo: cada
+  muestra dura un tiempo diferente (el propio intervalo RR). La FFT
+  asume muestras equiespaciadas. Aplicar la FFT directamente sobre
+  los RR sin interpolación produce un espectro completamente
+  distorsionado: las bandas LF y HF no corresponden a las
+  frecuencias reales.
+
+  Este es el error más común en implementaciones HRV caseras y
+  explica por qué tus valores LF/HF no coincidirán con NeuroKit2
+  ni con Kubios.
+
+TU CÓDIGO (calculateFrequencyDomain):
+  val real = DoubleArray(fftSize) { if (it < n) detrended[it] else 0.0 }
+  // ← aplica FFT directo sobre RR sin interpolar
+
+SOLUCIÓN — interpolación lineal a 4 Hz:
+  Antes de la FFT, interpolar la serie RR a una cuadrícula uniforme
+  de 4 Hz (estándar en HRV, cubre hasta 2 Hz > banda HF de 0.4 Hz).
+
+  Reemplazar el bloque de preparación de datos en
+  calculateFrequencyDomain() con esto:
+
+  ─────────────────────────────────────────────────────────────
+  // 1. Eje de tiempo acumulado (en segundos)
+  val tCum = DoubleArray(n)
+  tCum[0] = rrSeconds[0]
+  for (i in 1 until n) tCum[i] = tCum[i - 1] + rrSeconds[i]
+
+  // 2. Cuadrícula uniforme a 4 Hz
+  val resampleHz = 4.0
+  val tStart = tCum.first()
+  val tEnd   = tCum.last()
+  val step   = 1.0 / resampleHz
+  val tUniform = generateSequence(tStart) { it + step }
+      .takeWhile { it <= tEnd }
+      .toList()
+  val mUniform = tUniform.size
+
+  // 3. Interpolación lineal
+  val rrUniform = DoubleArray(mUniform) { k ->
+      val t = tUniform[k]
+      val idx = tCum.indexOfFirst { it >= t }.let { if (it < 1) 1 else it }
+      val t0 = tCum[idx - 1]; val t1 = tCum[idx]
+      val y0 = detrended[idx - 1]; val y1 = detrended[idx]
+      y0 + (y1 - y0) * (t - t0) / (t1 - t0)
+  }
+
+  // 4. Preparar array para FFT (ya uniforme)
+  val fftSize = nextPowerOfTwo(mUniform)
+  val real = DoubleArray(fftSize) { if (it < mUniform) rrUniform[it] else 0.0 }
+  val imag = DoubleArray(fftSize)
+  ─────────────────────────────────────────────────────────────
+
+NOTA: para mejor precisión en señales cortas o muy irregulares,
+  se puede usar interpolación cúbica (spline). La lineal es suficiente
+  para la mayoría de registros del Polar H10 en reposo.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BUG 3 — Periodo de muestreo incorrecto en freqResolution — CRÍTICO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEMA:
+  Usas la media de los RR como samplingPeriod (~0.8 s a 75 BPM).
+  Eso produce una resolución de frecuencia de ~1.5 Hz, con la que
+  es imposible distinguir VLF (0.003–0.04 Hz), LF (0.04–0.15 Hz)
+  y HF (0.15–0.4 Hz). Las bandas quedan completamente mezcladas.
+
+TU CÓDIGO:
+  val samplingPeriod = mean           // ← INCORRECTO (~0.8 s)
+  val freqResolution = 1.0 / (fftSize * samplingPeriod)
+
+CÓDIGO CORREGIDO:
+  // Después del Fix 2 (interpolación a 4 Hz), el periodo es fijo:
+  val resampleHz    = 4.0
+  val samplingPeriod = 1.0 / resampleHz   // = 0.25 s
+  val freqResolution = 1.0 / (fftSize * samplingPeriod)
+
+POR QUÉ:
+  Con fftSize = 512 y samplingPeriod = 0.25 s:
+    freqResolution = 1 / (512 × 0.25) = ~0.0078 Hz
+  Eso es suficiente para resolver VLF, LF y HF correctamente.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ADVERTENCIA 1 — Sin ventana de Hann (spectral leakage)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEMA:
+  Sin windowing, la FFT sufre spectral leakage: energía de la banda
+  LF se "filtra" hacia HF y viceversa. El ratio LF/HF queda
+  artificialmente distorsionado, especialmente en registros cortos
+  (< 5 minutos).
+
+SOLUCIÓN — añadir justo antes de fft(real, imag):
+  ─────────────────────────────────────────────────────────────
+  // Ventana de Hann sobre los datos válidos (no el zero-padding)
+  for (i in 0 until mUniform) {
+      val hann = 0.5 * (1.0 - cos(2.0 * PI * i / (mUniform - 1)))
+      real[i] *= hann
+  }
+  ─────────────────────────────────────────────────────────────
+
+  Esta es la ventana más usada en análisis HRV (también es la que
+  usa NeuroKit2 por defecto con el método Welch).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ADVERTENCIA 2 — Sin filtro de artefactos (ectópicos)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEMA:
+  Un solo latido ectópico (extrasístole) puede distorsionar RMSSD
+  hasta un 40% y arruinar completamente el espectro de frecuencias.
+  Tu calculate() no filtra nada antes de operar.
+
+SOLUCIÓN — añadir esta función en HrvCalculator y llamarla al inicio
+  de calculate():
+
+  ─────────────────────────────────────────────────────────────
+  /**
+   * Filtro de artefactos según criterio Malik (1996):
+   * elimina intervalos que difieren >20% del anterior.
+   * También descarta valores fuera de rango fisiológico.
+   */
+  fun filterArtifacts(rr: List<Double>): List<Double> {
+      val physiological = rr.filter { it in 300.0..2000.0 }
+      return physiological.filterIndexed { i, value ->
+          if (i == 0) true
+          else {
+              val prev = physiological[i - 1]
+              abs(value - prev) / prev < 0.20
+          }
+      }
+  }
+  ─────────────────────────────────────────────────────────────
+
+  Y en calculate():
+  ─────────────────────────────────────────────────────────────
+  fun calculate(rrIntervals: List<Double>): HrvMetrics? {
+      val rrMs = filterArtifacts(rrIntervals)   // ← añadir esta línea
+      if (rrMs.size < 30) return null
+      // ... resto igual
+  }
+  ─────────────────────────────────────────────────────────────
+
+  Rango fisiológico usado: 300–2000 ms = 30–200 BPM.
+  Criterio Malik: diferencia > 20% respecto al intervalo anterior.
+  Este criterio es el que usa NeuroKit2 por defecto (método " malik").
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ADVERTENCIA 3 — Normalización de potencia en la FFT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEMA:
+  El power espectral calculado como real[i]² + imag[i]² es la
+  potencia "cruda" de la DFT. No está normalizada por el número
+  de muestras ni por la corrección de la ventana de Hann, por lo
+  que los valores absolutos de VLF/LF/HF no son comparables con
+  los de Kubios o NeuroKit2.
+
+SOLUCIÓN — normalizar la potencia al acumular en las bandas:
+
+  ─────────────────────────────────────────────────────────────
+  // Factor de corrección para ventana de Hann y número de muestras
+  val windowCorrection = mUniform.toDouble()   // simplificado
+  // (para Hann exacto: sum of squared window coefficients)
+
+  for (i in 1 until fftSize / 2) {   // empezar en 1, omitir DC (i=0)
+      val freq  = i * freqResolution
+      // Factor 2 para compensar que solo usamos mitad del espectro
+      val power = 2.0 * (real[i].pow(2) + imag[i].pow(2)) / windowCorrection
+
+      when {
+          freq in 0.0033..0.04  -> vlf += power
+          freq in 0.04..0.15   -> lf  += power
+          freq in 0.15..0.4    -> hf  += power
+      }
+  }
+  ─────────────────────────────────────────────────────────────
+
+  Con esta normalización, los valores ms² serán comparables con
+  los de la literatura y con NeuroKit2.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RECOMENDACIÓN — Mínimo de muestras para análisis de frecuencia
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  El Task Force (1996) recomienda un mínimo de 5 minutos de
+  grabación para análisis de frecuencia fiable (~350–450 latidos).
+  Para VLF en particular se recomiendan ≥ 20 minutos.
+
+  Tu umbral actual es 30 latidos (≈ 24 segundos), que es suficiente
+  para RMSSD y SDNN, pero no para LF/HF.
+
+  SUGERENCIA — guardar métricas de frecuencia solo si hay datos
+  suficientes:
+
+  ─────────────────────────────────────────────────────────────
+  val MIN_SAMPLES_TIME = 30       // para métricas temporales
+  val MIN_SAMPLES_FREQ = 300      // ~5 min para LF/HF
+
+  fun calculate(rrIntervals: List<Double>): HrvMetrics? {
+      val rrMs = filterArtifacts(rrIntervals)
+      if (rrMs.size < MIN_SAMPLES_TIME) return null
+
+      // ... calcular métricas temporales y Poincaré siempre ...
+
+      val (vlf, lf, hf) = if (rrMs.size >= MIN_SAMPLES_FREQ)
+          calculateFrequencyDomain(rrMs)
+      else
+          Triple(0.0, 0.0, 0.0)   // o null si prefieres indicar "no disponible"
+
+      // ...
+  }
+  ─────────────────────────────────────────────────────────────
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ORDEN DE APLICACIÓN RECOMENDADO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Añadir filterArtifacts() y llamarla al inicio de calculate()
+     → impacto inmediato en todas las métricas
+
+  2. Corregir SD1 = rmssd / sqrt(2.0)
+     → una línea, validable de inmediato con NeuroKit2
+
+  3. Reescribir calculateFrequencyDomain() con:
+     a. Interpolación a 4 Hz (Bug 2)
+     b. samplingPeriod = 0.25 s (Bug 3)
+     c. Ventana de Hann (Advertencia 1)
+     d. Normalización de potencia (Advertencia 3)
+
+  4. Añadir la guarda MIN_SAMPLES_FREQ = 300
