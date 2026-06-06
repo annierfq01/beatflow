@@ -55,13 +55,13 @@ fun ReportScreen(
         }
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     val rrSaveLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/plain")
     ) { uri: Uri? ->
         if (uri != null && session != null) {
             val rrValues = session!!.records.mapNotNull { it.rr }
             if (rrValues.isNotEmpty()) {
-                val context = androidx.compose.ui.platform.LocalContext.current
                 context.contentResolver.openOutputStream(uri)?.use { out ->
                     val content = rrValues.joinToString("\n") { "%.0f".format(it) }
                     out.write(content.toByteArray(Charsets.UTF_8))
