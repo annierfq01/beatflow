@@ -55,6 +55,21 @@ fun ReportScreen(
         }
     }
 
+    val rrSaveLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        if (uri != null && session != null) {
+            val rrValues = session!!.records.mapNotNull { it.rr }
+            if (rrValues.isNotEmpty()) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    val content = rrValues.joinToString("\n") { "%.0f".format(it) }
+                    out.write(content.toByteArray(Charsets.UTF_8))
+                }
+            }
+        }
+    }
+
     LaunchedEffect(exportedFile) {
         exportedFile?.let {
             snackbarHostState.showSnackbar("Reporte guardado: ${it.name}")
@@ -75,7 +90,14 @@ fun ReportScreen(
                         val filename = viewModel.getDefaultFilename()
                         saveLauncher.launch(filename)
                     }) {
-                        Icon(Icons.Default.Save, contentDescription = "Guardar")
+                        Icon(Icons.Default.Save, contentDescription = "Guardar .hrv")
+                    }
+                    IconButton(onClick = {
+                        val patient = session?.patientData
+                        val name = "${patient?.nombre ?: "desconocido"}_${patient?.apellidos ?: ""}_RR.txt"
+                        rrSaveLauncher.launch(name)
+                    }) {
+                        Icon(Icons.Default.FavoriteBorder, contentDescription = "Guardar RR")
                     }
                 }
             )

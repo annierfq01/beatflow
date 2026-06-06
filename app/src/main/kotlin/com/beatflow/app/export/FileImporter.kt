@@ -23,7 +23,8 @@ data class ImportedSession(
     val endTime: Long,
     val durationMs: Long,
     val metrics: HrvMetrics?,
-    val records: List<RawRecord> = emptyList()  // Siempre vacío (no se importan registros raw)
+    val records: List<RawRecord> = emptyList(),
+    val rrIntervals: List<Double> = emptyList()
 )
 
 @Singleton
@@ -48,12 +49,14 @@ class FileImporter @Inject constructor() {
             ?: throw IllegalStateException("No se pudo leer el archivo")
 
         var jsonContent: String? = null
+        var rrCsvContent: String? = null
 
         ZipInputStream(zipBytes.inputStream()).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
                 when (entry.name) {
                     "session.json" -> jsonContent = zis.readBytes().decodeToString()
+                    "rr_data.csv" -> rrCsvContent = zis.readBytes().decodeToString()
                 }
                 zis.closeEntry()
                 entry = zis.nextEntry
@@ -62,7 +65,9 @@ class FileImporter @Inject constructor() {
 
         val sesJson = jsonContent ?: throw IllegalStateException("No se encontró session.json en el archivo")
 
-        parseSession(sesJson)
+        val session = parseSession(sesJson)
+        val rrIntervals = rrCsvContent?.let { parseRrCsv(it) } ?: emptyList()
+        session.copy(rrIntervals = rrIntervals)
     }
 
     private fun parseSession(jsonContent: String): ImportedSession {
@@ -133,6 +138,14 @@ class FileImporter @Inject constructor() {
             sd2 = nl?.get("sd2")?.jsonPrimitive?.double ?: 0.0,
             sd1Sd2Ratio = nl?.get("sd1Sd2Ratio")?.jsonPrimitive?.double ?: 0.0
         )
+    }
+
+    private fun parseRrCsv(csvContent: String): List<Double> {
+        val lines = csvContent.lines().drop(1) // skip header
+        return lines.mapNotNull { line ->
+            val parts = line.split(",", limit = 2)
+            if (parts.size == 2) parts[1].toDoubleOrNull() else null
+        }
     }
 
     private fun defaultMetrics() = HrvMetrics(

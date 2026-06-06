@@ -158,6 +158,21 @@ private fun ImportedDataContent(
     modifier: Modifier = Modifier
 ) {
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val rrSaveLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        if (uri != null && data.rrIntervals.isNotEmpty()) {
+            scope.launch {
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    val content = data.rrIntervals.joinToString("\n") { "%.0f".format(it) }
+                    out.write(content.toByteArray(Charsets.UTF_8))
+                }
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -182,13 +197,23 @@ private fun ImportedDataContent(
                     tint = BeatFlowColors.Success
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("Archivo importado correctamente", fontWeight = FontWeight.Bold)
                     Text(
                         "${data.patientData.nombre} ${data.patientData.apellidos}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+                if (data.rrIntervals.isNotEmpty()) {
+                    IconButton(
+                        onClick = {
+                            val name = "${data.patientData.nombre}_${data.patientData.apellidos}_RR.txt"
+                            rrSaveLauncher.launch(name)
+                        }
+                    ) {
+                        Icon(Icons.Default.FavoriteBorder, contentDescription = "Guardar RR")
+                    }
                 }
             }
         }

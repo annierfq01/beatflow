@@ -1,0 +1,24 @@
+Formato de archivo recomendado
+Crea un archivo de texto plano (.txt o .csv) con la siguiente estructura:
+
+Contenido del archivo
+Una columna de números
+Cada fila representa un intervalo RR
+Unidad: milisegundos (ms)
+Sin encabezado (o con encabezado opcional)
+
+Ejemplo
+812
+798
+805
+821
+
+Especificaciones técnicas del archivo:
+
+Extensión: .txt o .csv
+
+Codificación: UTF-8 (recomendado) o ASCII
+
+Separador: un salto de línea por valor
+
+Unidad obligatoria: milisegundos (NO segundos)
