@@ -7,8 +7,10 @@ import com.beatflow.app.bluetooth.HrMeasurement
 import com.beatflow.app.bluetooth.PolarManager
 import com.beatflow.app.data.repository.SessionRepository
 import com.beatflow.app.domain.model.RawRecord
+import com.beatflow.app.util.SoundPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,9 +48,25 @@ class MeasurementViewModel @Inject constructor(
 
     val batteryLevel: StateFlow<Int> = polarManager.batteryLevel
 
+    private val _breathingPhase = MutableStateFlow("")
+    val breathingPhase: StateFlow<String> = _breathingPhase.asStateFlow()
+
+    private val _phaseTimeLeft = MutableStateFlow(0)
+    val phaseTimeLeft: StateFlow<Int> = _phaseTimeLeft.asStateFlow()
+
+    private val _protocolTimeLeft = MutableStateFlow(0)
+    val protocolTimeLeft: StateFlow<Int> = _protocolTimeLeft.asStateFlow()
+
+    private val _protocolCompleted = MutableStateFlow(false)
+    val protocolCompleted: StateFlow<Boolean> = _protocolCompleted.asStateFlow()
+
     private var timerJob: Job? = null
     private var ecgSaveJob: Job? = null
+    private var protocolJob: Job? = null
     private var sessionStartTime: Long = 0L
+    private var protocolTotalSecs = 0
+    private var inspirationSecs = 5
+    private var expirationSecs = 5
     private val ecgPersistenceBuffer = mutableListOf<Double>()
     private val pendingRecords = mutableListOf<RawRecord>()
     private var lastHr = 60f
@@ -60,6 +78,24 @@ class MeasurementViewModel @Inject constructor(
     fun startSession() {
         sessionStartTime = System.currentTimeMillis()
         _isRecording.value = true
+        resetBuffers()
+        startStreaming()
+        startTimers()
+    }
+
+    fun startSessionWithProtocol(totalSecs: Int, inspSecs: Int, expSecs: Int) {
+        protocolTotalSecs = totalSecs
+        inspirationSecs = inspSecs
+        expirationSecs = expSecs
+        sessionStartTime = System.currentTimeMillis()
+        _isRecording.value = true
+        resetBuffers()
+        startStreaming()
+        startTimers()
+        startProtocolTimer()
+    }
+
+    private fun resetBuffers() {
         _hrHistory.value = emptyList()
         _rrIntervals.value = emptyList()
         _ecgBuffer.value = emptyList()
@@ -74,7 +110,9 @@ class MeasurementViewModel @Inject constructor(
         repeat(RR_BUFFER_SIZE) { rrRingBuffer.addLast(lastRr) }
         repeat(ECG_BUFFER_SIZE) { ecgRingBuffer.addLast(0f) }
         _ecgBuffer.value = ecgRingBuffer.map { it.toDouble() }
+    }
 
+    private fun startStreaming() {
         val connectedDeviceId = (polarManager.connectionState.value as? ConnectionState.Connected)?.deviceId
         if (connectedDeviceId != null) {
             polarManager.startEcgStreaming(connectedDeviceId)
@@ -83,33 +121,28 @@ class MeasurementViewModel @Inject constructor(
         viewModelScope.launch {
             _sessionId = sessionRepository.createSession(sessionStartTime)
         }
+    }
 
+    private fun startTimers() {
         timerJob = viewModelScope.launch {
             while (true) {
-                kotlinx.coroutines.delay(1000)
+                delay(1000)
                 _sessionDuration.value = System.currentTimeMillis() - sessionStartTime
             }
         }
 
         ecgSaveJob = viewModelScope.launch {
             while (true) {
-                kotlinx.coroutines.delay(500)
+                delay(500)
                 val toSave = ecgPersistenceBuffer.toList()
                 ecgPersistenceBuffer.clear()
                 val timestamp = System.currentTimeMillis()
                 toSave.forEach { value ->
                     pendingRecords.add(
-                        RawRecord(
-                            timestamp = timestamp,
-                            hr = null,
-                            rr = null,
-                            ecgSignal = value
-                        )
+                        RawRecord(timestamp = timestamp, hr = null, rr = null, ecgSignal = value)
                     )
                 }
-                if (pendingRecords.size >= 50) {
-                    flushRecords()
-                }
+                if (pendingRecords.size >= 50) flushRecords()
             }
         }
 
@@ -126,12 +159,7 @@ class MeasurementViewModel @Inject constructor(
                         rrRingBuffer.addLast(lastRr)
                         if (rrRingBuffer.size > RR_BUFFER_SIZE) rrRingBuffer.removeFirst()
                         pendingRecords.add(
-                            RawRecord(
-                                timestamp = measurement.timestamp,
-                                hr = measurement.hr,
-                                rr = rrMs,
-                                ecgSignal = null
-                            )
+                            RawRecord(timestamp = measurement.timestamp, hr = measurement.hr, rr = rrMs, ecgSignal = null)
                         )
                     }
                     _rrBuffer.value = rrRingBuffer.toList()
@@ -139,9 +167,7 @@ class MeasurementViewModel @Inject constructor(
                     if (hrRingBuffer.size > HR_BUFFER_SIZE) hrRingBuffer.removeFirst()
                     _hrBuffer.value = hrRingBuffer.toList()
 
-                    if (pendingRecords.size >= 10) {
-                        flushRecords()
-                    }
+                    if (pendingRecords.size >= 10) flushRecords()
                 }
             }
         }
@@ -160,11 +186,52 @@ class MeasurementViewModel @Inject constructor(
         }
     }
 
+    private fun startProtocolTimer() {
+        var totalLeft = protocolTotalSecs
+        var isInspiration = true
+        var phaseLeft = inspirationSecs
+        _protocolTimeLeft.value = totalLeft
+        _breathingPhase.value = "INSPIRA"
+        _phaseTimeLeft.value = phaseLeft
+        SoundPlayer.beep()
+
+        protocolJob = viewModelScope.launch {
+            while (totalLeft > 0) {
+                delay(1000)
+                totalLeft--
+                phaseLeft--
+                _protocolTimeLeft.value = totalLeft
+                _phaseTimeLeft.value = phaseLeft
+
+                if (phaseLeft <= 0) {
+                    isInspiration = !isInspiration
+                    phaseLeft = if (isInspiration) inspirationSecs else expirationSecs
+                    _breathingPhase.value = if (isInspiration) "INSPIRA" else "EXPIRA"
+                    _phaseTimeLeft.value = phaseLeft
+                    SoundPlayer.beep()
+                }
+
+                if (totalLeft <= 0) {
+                    _isRecording.value = false
+                    timerJob?.cancel()
+                    ecgSaveJob?.cancel()
+                    protocolJob?.cancel()
+                    polarManager.stopAllStreaming()
+                    flushRecords()
+                    _breathingPhase.value = "COMPLETADO"
+                    _protocolCompleted.value = true
+                }
+            }
+        }
+    }
+
     fun stopSession(): Long {
         _isRecording.value = false
         timerJob?.cancel()
         ecgSaveJob?.cancel()
+        protocolJob?.cancel()
         polarManager.stopAllStreaming()
+        SoundPlayer.release()
         _hrHistory.value = emptyList()
         _rrIntervals.value = emptyList()
         _ecgBuffer.value = emptyList()
@@ -185,7 +252,9 @@ class MeasurementViewModel @Inject constructor(
         super.onCleared()
         timerJob?.cancel()
         ecgSaveJob?.cancel()
+        protocolJob?.cancel()
         polarManager.stopAllStreaming()
+        SoundPlayer.release()
         flushRecords()
     }
 
@@ -193,8 +262,5 @@ class MeasurementViewModel @Inject constructor(
         const val HR_BUFFER_SIZE = 300
         const val RR_BUFFER_SIZE = 300
         const val ECG_BUFFER_SIZE = 650
-        const val HR_VISIBLE_RANGE = 15
-        const val RR_VISIBLE_RANGE = 5
-        const val ECG_VISIBLE_RANGE = 650
     }
 }

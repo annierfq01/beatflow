@@ -1,7 +1,10 @@
 package com.beatflow.app.presentation.measurement
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
@@ -13,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +37,9 @@ enum class ChartType(val label: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MeasurementScreen(
+    protocolTotalSecs: Int = 0,
+    inspirationSecs: Int = 5,
+    expirationSecs: Int = 5,
     onNavigateToPatientForm: (Long) -> Unit,
     onNavigateBack: () -> Unit,
     viewModel: MeasurementViewModel = hiltViewModel()
@@ -45,13 +52,28 @@ fun MeasurementScreen(
     val sessionDuration by viewModel.sessionDuration.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val batteryLevel by viewModel.batteryLevel.collectAsState()
+    val breathingPhase by viewModel.breathingPhase.collectAsState()
+    val phaseTimeLeft by viewModel.phaseTimeLeft.collectAsState()
+    val protocolTimeLeft by viewModel.protocolTimeLeft.collectAsState()
+    val protocolCompleted by viewModel.protocolCompleted.collectAsState()
 
     var showStopConfirm by remember { mutableStateOf(false) }
     var stopAction by remember { mutableStateOf<String?>(null) }
     var selectedChart by remember { mutableStateOf(ChartType.ECG) }
 
     LaunchedEffect(Unit) {
-        viewModel.startSession()
+        if (protocolTotalSecs > 0) {
+            viewModel.startSessionWithProtocol(protocolTotalSecs, inspirationSecs, expirationSecs)
+        } else {
+            viewModel.startSession()
+        }
+    }
+
+    LaunchedEffect(protocolCompleted) {
+        if (protocolCompleted) {
+            val sessionId = viewModel.stopSession()
+            onNavigateToPatientForm(sessionId)
+        }
     }
 
     Scaffold(
@@ -177,6 +199,15 @@ fun MeasurementScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            if (protocolTotalSecs > 0 && breathingPhase.isNotEmpty()) {
+                BreathingGuideCard(
+                    phase = breathingPhase,
+                    phaseTimeLeft = phaseTimeLeft,
+                    protocolTimeLeft = protocolTimeLeft
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             if (hrHistory.isNotEmpty()) {
                 val last = hrHistory.last()
@@ -390,6 +421,66 @@ private fun HrValueCard(hr: Int, rr: Double?) {
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BreathingGuideCard(
+    phase: String,
+    phaseTimeLeft: Int,
+    protocolTimeLeft: Int
+) {
+    val isInhale = phase.contains("INSPIRA", ignoreCase = true)
+    val circleColor = if (isInhale) BeatFlowColors.Primary else BeatFlowColors.HeartRed
+    val circleSize by animateDpAsState(
+        targetValue = if (isInhale) 140.dp else 100.dp,
+        animationSpec = tween(500)
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(circleSize)
+                    .clip(CircleShape)
+                    .background(circleColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = phase,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = circleColor
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "$phaseTimeLeft s",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+                fontFamily = FontFamily.Monospace,
+                color = circleColor.copy(alpha = 0.8f)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { phaseTimeLeft.toFloat() / 5f },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                color = circleColor,
+                trackColor = circleColor.copy(alpha = 0.15f)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Protocolo: ${protocolTimeLeft / 60}:%02d".format(protocolTimeLeft % 60),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

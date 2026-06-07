@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlin.math.roundToInt
 import com.beatflow.app.bluetooth.ConnectionState
 import com.beatflow.app.presentation.theme.BeatFlowColors
 
@@ -39,6 +40,7 @@ import com.beatflow.app.presentation.theme.BeatFlowColors
 @Composable
 fun MainScreen(
     onNavigateToMeasurement: () -> Unit,
+    onNavigateToProtocol: (Int, Int, Int) -> Unit = { _, _, _ -> },
     onNavigateToImport: () -> Unit = {},
     viewModel: BluetoothViewModel = hiltViewModel()
 ) {
@@ -55,6 +57,10 @@ fun MainScreen(
     var showBtDialog by remember { mutableStateOf(false) }
     var showLocationDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showProtocolDialog by remember { mutableStateOf(false) }
+    var protocolTotal by remember { mutableIntStateOf(5) }
+    var protocolInsp by remember { mutableIntStateOf(5) }
+    var protocolExp by remember { mutableIntStateOf(5) }
     var isConnecting by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -196,6 +202,26 @@ fun MainScreen(
                         fontWeight = FontWeight.Bold,
                         color = if (connectionState is ConnectionState.Connected)
                             MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = { showProtocolDialog = true },
+                    enabled = connectionState is ConnectionState.Connected,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "INICIAR PROTOCOLO",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (connectionState is ConnectionState.Connected)
+                            BeatFlowColors.Primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -371,6 +397,60 @@ fun MainScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showAboutDialog = false }) { Text("CERRAR") }
+            }
+        )
+    }
+
+    if (showProtocolDialog) {
+        AlertDialog(
+            onDismissRequest = { showProtocolDialog = false },
+            title = { Text("Protocolo de respiración controlada") },
+            text = {
+                Column {
+                    Text("Tiempo total de medición", style = MaterialTheme.typography.labelMedium)
+                    Text("$protocolTotal min", style = MaterialTheme.typography.titleMedium)
+                    Slider(
+                        value = protocolTotal.toFloat(), onValueChange = { protocolTotal = it.roundToInt() },
+                        valueRange = 1f..20f, steps = 18
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Inspiración", style = MaterialTheme.typography.labelMedium)
+                    Text("$protocolInsp s", style = MaterialTheme.typography.titleMedium)
+                    Slider(
+                        value = protocolInsp.toFloat(), onValueChange = { protocolInsp = it.roundToInt() },
+                        valueRange = 2f..10f, steps = 7
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Espiración", style = MaterialTheme.typography.labelMedium)
+                    Text("$protocolExp s", style = MaterialTheme.typography.titleMedium)
+                    Slider(
+                        value = protocolExp.toFloat(), onValueChange = { protocolExp = it.roundToInt() },
+                        valueRange = 2f..10f, steps = 7
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "Respiración guiada: ${protocolInsp}s IN / ${protocolExp}s OUT\n" +
+                                    "Total: ${protocolTotal} min (${protocolTotal * 60 / (protocolInsp + protocolExp)} ciclos)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showProtocolDialog = false
+                    onNavigateToProtocol(protocolTotal * 60, protocolInsp, protocolExp)
+                }) { Text("INICIAR") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showProtocolDialog = false }) { Text("CANCELAR") }
             }
         )
     }

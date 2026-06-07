@@ -14,11 +14,13 @@ import com.beatflow.app.presentation.report.ReportScreen
 
 object Routes {
     const val MAIN = "main"
-    const val MEASUREMENT = "measurement"
+    const val MEASUREMENT = "measurement?protocolTotal={protocolTotal}&inspirationSecs={inspirationSecs}&expirationSecs={expirationSecs}"
     const val PATIENT_FORM = "patient_form/{sessionId}"
     const val REPORT = "report/{sessionId}"
     const val IMPORT = "import"
 
+    fun measurement(protocolTotal: Int = 0, inspirationSecs: Int = 5, expirationSecs: Int = 5) =
+        "measurement?protocolTotal=$protocolTotal&inspirationSecs=$inspirationSecs&expirationSecs=$expirationSecs"
     fun patientForm(sessionId: Long) = "patient_form/$sessionId"
     fun report(sessionId: Long) = "report/$sessionId"
 }
@@ -34,7 +36,10 @@ fun BeatFlowNavGraph() {
         composable(Routes.MAIN) {
             MainScreen(
                 onNavigateToMeasurement = {
-                    navController.navigate(Routes.MEASUREMENT)
+                    navController.navigate(Routes.measurement())
+                },
+                onNavigateToProtocol = { total, insp, exp ->
+                    navController.navigate(Routes.measurement(total, insp, exp))
                 },
                 onNavigateToImport = {
                     navController.navigate(Routes.IMPORT)
@@ -50,8 +55,21 @@ fun BeatFlowNavGraph() {
                 }
             )
         }
-        composable(Routes.MEASUREMENT) {
+        composable(
+            route = Routes.MEASUREMENT,
+            arguments = listOf(
+                navArgument("protocolTotal") { type = NavType.IntType; defaultValue = 0 },
+                navArgument("inspirationSecs") { type = NavType.IntType; defaultValue = 5 },
+                navArgument("expirationSecs") { type = NavType.IntType; defaultValue = 5 }
+            )
+        ) { backStackEntry ->
+            val protocolTotal = backStackEntry.arguments?.getInt("protocolTotal") ?: 0
+            val inspirationSecs = backStackEntry.arguments?.getInt("inspirationSecs") ?: 5
+            val expirationSecs = backStackEntry.arguments?.getInt("expirationSecs") ?: 5
             MeasurementScreen(
+                protocolTotalSecs = protocolTotal,
+                inspirationSecs = inspirationSecs,
+                expirationSecs = expirationSecs,
                 onNavigateToPatientForm = { sessionId ->
                     navController.navigate(Routes.patientForm(sessionId))
                 },
