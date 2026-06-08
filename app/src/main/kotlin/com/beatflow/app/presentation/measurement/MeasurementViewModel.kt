@@ -11,6 +11,7 @@ import com.beatflow.app.domain.model.RawRecord
 import com.beatflow.app.util.SoundPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,6 +79,7 @@ class MeasurementViewModel @Inject constructor(
     private var protocolTotalSecs = 0
     private var inspirationSecs = 5
     private var expirationSecs = 5
+    private val bufferLock = Any()
     private val ecgPersistenceBuffer = mutableListOf<Double>()
     private val pendingRecords = mutableListOf<RawRecord>()
     private var lastHr = 60f
@@ -147,22 +149,29 @@ class MeasurementViewModel @Inject constructor(
             }
         }
 
-        ecgSaveJob = viewModelScope.launch {
+        ecgSaveJob = viewModelScope.launch(Dispatchers.Default) {
             while (true) {
                 delay(500)
-                val toSave = ecgPersistenceBuffer.toList()
-                ecgPersistenceBuffer.clear()
-                val timestamp = System.currentTimeMillis()
-                toSave.forEach { value ->
-                    pendingRecords.add(
-                        RawRecord(timestamp = timestamp, hr = null, rr = null, ecgSignal = value)
-                    )
+                val toSave: List<Double>
+                synchronized(bufferLock) {
+                    toSave = ecgPersistenceBuffer.toList()
+                    ecgPersistenceBuffer.clear()
                 }
-                if (pendingRecords.size >= 50) flushRecords()
+                val timestamp = System.currentTimeMillis()
+                synchronized(bufferLock) {
+                    toSave.forEach { value ->
+                        pendingRecords.add(
+                            RawRecord(timestamp = timestamp, hr = null, rr = null, ecgSignal = value)
+                        )
+                    }
+                }
+                val shouldFlush: Boolean
+                synchronized(bufferLock) { shouldFlush = pendingRecords.size >= 50 }
+                if (shouldFlush) flushRecords()
             }
         }
 
-        hrCollectorJob = viewModelScope.launch {
+        hrCollectorJob = viewModelScope.launch(Dispatchers.Default) {
             try {
                 polarManager.hrMeasurements.collect { measurement ->
                     if (measurement != null) {
@@ -170,31 +179,37 @@ class MeasurementViewModel @Inject constructor(
                         _hrHistory.value = prevHistory + measurement
 
                         lastHr = measurement.hr.toFloat()
-                        measurement.rr.forEach { rrMs ->
-                            lastRr = rrMs.toFloat()
-                            _rrIntervals.value = _rrIntervals.value + rrMs
-                            rrRingBuffer.addLast(lastRr)
-                            if (rrRingBuffer.size > RR_BUFFER_SIZE) rrRingBuffer.removeFirst()
-                            pendingRecords.add(
-                                RawRecord(timestamp = measurement.timestamp, hr = measurement.hr, rr = rrMs, ecgSignal = null)
-                            )
+                        synchronized(bufferLock) {
+                            measurement.rr.forEach { rrMs ->
+                                lastRr = rrMs.toFloat()
+                                _rrIntervals.value = _rrIntervals.value + rrMs
+                                rrRingBuffer.addLast(lastRr)
+                                if (rrRingBuffer.size > RR_BUFFER_SIZE) rrRingBuffer.removeFirst()
+                                pendingRecords.add(
+                                    RawRecord(timestamp = measurement.timestamp, hr = measurement.hr, rr = rrMs, ecgSignal = null)
+                                )
+                            }
                         }
                         _rrBuffer.value = rrRingBuffer.toList()
                         hrRingBuffer.addLast(lastHr)
                         if (hrRingBuffer.size > HR_BUFFER_SIZE) hrRingBuffer.removeFirst()
                         _hrBuffer.value = hrRingBuffer.toList()
 
-                        if (pendingRecords.size >= 10) flushRecords()
+                        val shouldFlush: Boolean
+                        synchronized(bufferLock) { shouldFlush = pendingRecords.size >= 10 }
+                        if (shouldFlush) flushRecords()
                     }
                 }
             } catch (_: Exception) { }
         }
 
-        ecgCollectorJob = viewModelScope.launch {
+        ecgCollectorJob = viewModelScope.launch(Dispatchers.Default) {
             try {
                 polarManager.ecgSamples.collect { samples ->
                     if (samples.isNotEmpty()) {
-                        ecgPersistenceBuffer.addAll(samples)
+                        synchronized(bufferLock) {
+                            ecgPersistenceBuffer.addAll(samples)
+                        }
                         samples.forEach { value ->
                             ecgRingBuffer.addLast(value.toFloat())
                             if (ecgRingBuffer.size > ECG_BUFFER_SIZE) ecgRingBuffer.removeFirst()
@@ -219,34 +234,36 @@ class MeasurementViewModel @Inject constructor(
         var isInspiration = true
         var phaseLeft = inspSecs
 
+        viewModelScope.launch(Dispatchers.Default) {
+            SoundPlayer.beep(context)
+        }
         protocolJob = viewModelScope.launch {
-            try {
-                SoundPlayer.beep(context)
-                while (totalLeft > 0) {
-                    delay(1000)
-                    totalLeft--
-                    phaseLeft--
-                    _protocolTimeLeft.value = totalLeft
-                    _phaseTimeLeft.value = phaseLeft
+            while (totalLeft > 0) {
+                delay(1000)
+                totalLeft--
+                phaseLeft--
+                _protocolTimeLeft.value = totalLeft
+                _phaseTimeLeft.value = phaseLeft
 
-                    if (phaseLeft <= 0) {
-                        isInspiration = !isInspiration
-                        phaseLeft = if (isInspiration) inspSecs else expSecs
-                        _breathingPhase.value = if (isInspiration) "INSPIRA" else "EXPIRA"
-                        _phaseTimeLeft.value = phaseLeft
+                if (phaseLeft <= 0) {
+                    isInspiration = !isInspiration
+                    phaseLeft = if (isInspiration) inspSecs else expSecs
+                    _breathingPhase.value = if (isInspiration) "INSPIRA" else "EXPIRA"
+                    _phaseTimeLeft.value = phaseLeft
+                    viewModelScope.launch(Dispatchers.Default) {
                         SoundPlayer.beep(context)
                     }
-
-                    if (totalLeft <= 0) {
-                        _isRecording.value = false
-                        timerJob?.cancel()
-                        ecgSaveJob?.cancel()
-                        flushRecords()
-                        _breathingPhase.value = "COMPLETADO"
-                        _protocolCompleted.value = true
-                    }
                 }
-            } catch (_: Exception) { }
+
+                if (totalLeft <= 0) {
+                    _isRecording.value = false
+                    timerJob?.cancel()
+                    ecgSaveJob?.cancel()
+                    flushRecords()
+                    _breathingPhase.value = "COMPLETADO"
+                    _protocolCompleted.value = true
+                }
+            }
         }
     }
 
@@ -267,8 +284,11 @@ class MeasurementViewModel @Inject constructor(
 
     private fun flushRecords() {
         val sid = _sessionId ?: return
-        val batch = pendingRecords.toList()
-        pendingRecords.clear()
+        val batch: List<RawRecord>
+        synchronized(bufferLock) {
+            batch = pendingRecords.toList()
+            pendingRecords.clear()
+        }
         viewModelScope.launch {
             sessionRepository.addRecords(sid, batch)
         }
