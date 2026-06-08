@@ -44,11 +44,10 @@ fun MeasurementScreen(
     onNavigateBack: () -> Unit,
     viewModel: MeasurementViewModel = hiltViewModel()
 ) {
+    val isProtocolMode = protocolTotalSecs > 0
+
     val hrHistory by viewModel.hrHistory.collectAsState()
     val rrIntervals by viewModel.rrIntervals.collectAsState()
-    val ecgBuffer by viewModel.ecgBuffer.collectAsState()
-    val hrBuffer by viewModel.hrBuffer.collectAsState()
-    val rrBuffer by viewModel.rrBuffer.collectAsState()
     val sessionDuration by viewModel.sessionDuration.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val batteryLevel by viewModel.batteryLevel.collectAsState()
@@ -56,6 +55,24 @@ fun MeasurementScreen(
     val phaseTimeLeft by viewModel.phaseTimeLeft.collectAsState()
     val protocolTimeLeft by viewModel.protocolTimeLeft.collectAsState()
     val protocolCompleted by viewModel.protocolCompleted.collectAsState()
+
+    val ecgBuffer: List<Double> = if (isProtocolMode) {
+        remember { emptyList() }
+    } else {
+        viewModel.ecgBuffer.collectAsState().value
+    }
+
+    val hrBuffer: List<Float> = if (isProtocolMode) {
+        remember { emptyList() }
+    } else {
+        viewModel.hrBuffer.collectAsState().value
+    }
+
+    val rrBuffer: List<Float> = if (isProtocolMode) {
+        remember { emptyList() }
+    } else {
+        viewModel.rrBuffer.collectAsState().value
+    }
 
     var showStopConfirm by remember { mutableStateOf(false) }
     var stopAction by remember { mutableStateOf<String?>(null) }
@@ -79,7 +96,7 @@ fun MeasurementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Medición en curso") },
+                title = { Text(if (isProtocolMode) "Protocolo de respiración" else "Medición en curso") },
                 navigationIcon = {
                     if (isRecording) {
                         TextButton(onClick = {
@@ -119,123 +136,163 @@ fun MeasurementScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            TimerCard(sessionDuration)
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            ChartSelector(selectedChart) { selectedChart = it }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Box(modifier = Modifier.weight(1f)) {
-                when (selectedChart) {
-                    ChartType.ECG -> {
-                        if (ecgBuffer.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        MaterialTheme.colorScheme.surface,
-                                        RoundedCornerShape(12.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Esperando datos de ECG…\nConecta el sensor Polar H10",
-                                    textAlign = TextAlign.Center,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 16.sp
-                                )
-                            }
-                        } else {
-                            EcgChart(ecgBuffer.map { it.toFloat() })
-                        }
+            if (isProtocolMode) {
+                // Protocol mode: only HR/RR + breathing guide + stop
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (hrHistory.isNotEmpty()) {
+                        val last = hrHistory.last()
+                        HrValueCard(hr = last.hr, rr = last.rr.lastOrNull())
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
-                    ChartType.HR -> {
-                        if (hrBuffer.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        MaterialTheme.colorScheme.surface,
-                                        RoundedCornerShape(12.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Esperando datos de frecuencia cardíaca…",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 16.sp
-                                )
-                            }
-                        } else {
-                            HrChart(hrBuffer)
-                        }
+
+                    if (breathingPhase.isNotEmpty()) {
+                        BreathingGuideCard(
+                            phase = breathingPhase,
+                            phaseTimeLeft = phaseTimeLeft,
+                            protocolTimeLeft = protocolTimeLeft,
+                            maxPhaseTime = if (breathingPhase.contains("INSPIRA", ignoreCase = true)) inspirationSecs else expirationSecs
+                        )
                     }
-                    ChartType.RR -> {
-                        if (rrBuffer.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        MaterialTheme.colorScheme.surface,
-                                        RoundedCornerShape(12.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Esperando intervalos RR…",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 16.sp
-                                )
+                }
+
+                Button(
+                    onClick = {
+                        stopAction = "STOP"
+                        showStopConfirm = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BeatFlowColors.HeartRed
+                    )
+                ) {
+                    Icon(Icons.Default.Stop, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "DETENER",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            } else {
+                // Normal mode: timer + chart selector + chart + values + stop
+                TimerCard(sessionDuration)
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                ChartSelector(selectedChart) { selectedChart = it }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Box(modifier = Modifier.weight(1f)) {
+                    when (selectedChart) {
+                        ChartType.ECG -> {
+                            if (ecgBuffer.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            MaterialTheme.colorScheme.surface,
+                                            RoundedCornerShape(12.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "Esperando datos de ECG…\nConecta el sensor Polar H10",
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                            } else {
+                                EcgChart(ecgBuffer.map { it.toFloat() })
                             }
-                        } else {
-                            RrChart(rrBuffer)
+                        }
+                        ChartType.HR -> {
+                            if (hrBuffer.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            MaterialTheme.colorScheme.surface,
+                                            RoundedCornerShape(12.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "Esperando datos de frecuencia cardíaca…",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                            } else {
+                                HrChart(hrBuffer)
+                            }
+                        }
+                        ChartType.RR -> {
+                            if (rrBuffer.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            MaterialTheme.colorScheme.surface,
+                                            RoundedCornerShape(12.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "Esperando intervalos RR…",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                            } else {
+                                RrChart(rrBuffer)
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (protocolTotalSecs > 0 && breathingPhase.isNotEmpty()) {
-                BreathingGuideCard(
-                    phase = breathingPhase,
-                    phaseTimeLeft = phaseTimeLeft,
-                    protocolTimeLeft = protocolTimeLeft
-                )
                 Spacer(modifier = Modifier.height(8.dp))
-            }
 
-            if (hrHistory.isNotEmpty()) {
-                val last = hrHistory.last()
-                HrValueCard(hr = last.hr, rr = last.rr.lastOrNull())
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+                if (hrHistory.isNotEmpty()) {
+                    val last = hrHistory.last()
+                    HrValueCard(hr = last.hr, rr = last.rr.lastOrNull())
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
-            Button(
-                onClick = {
-                    stopAction = "STOP"
-                    showStopConfirm = true
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = BeatFlowColors.HeartRed
-                )
-            ) {
-                Icon(Icons.Default.Stop, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "DETENER",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
+                Button(
+                    onClick = {
+                        stopAction = "STOP"
+                        showStopConfirm = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BeatFlowColors.HeartRed
+                    )
+                ) {
+                    Icon(Icons.Default.Stop, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "DETENER",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -429,7 +486,8 @@ private fun HrValueCard(hr: Int, rr: Double?) {
 private fun BreathingGuideCard(
     phase: String,
     phaseTimeLeft: Int,
-    protocolTimeLeft: Int
+    protocolTimeLeft: Int,
+    maxPhaseTime: Int
 ) {
     val isInhale = phase.contains("INSPIRA", ignoreCase = true)
     val circleColor = if (isInhale) BeatFlowColors.Primary else BeatFlowColors.HeartRed
@@ -437,6 +495,7 @@ private fun BreathingGuideCard(
         targetValue = if (isInhale) 140.dp else 100.dp,
         animationSpec = tween(500)
     )
+    val phaseFraction = if (maxPhaseTime > 0) phaseTimeLeft.toFloat() / maxPhaseTime else 0f
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -470,7 +529,7 @@ private fun BreathingGuideCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             LinearProgressIndicator(
-                progress = { phaseTimeLeft.toFloat() / 5f },
+                progress = { phaseFraction },
                 modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
                 color = circleColor,
                 trackColor = circleColor.copy(alpha = 0.15f)

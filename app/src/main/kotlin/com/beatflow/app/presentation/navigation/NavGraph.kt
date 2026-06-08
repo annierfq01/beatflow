@@ -1,6 +1,7 @@
 package com.beatflow.app.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -55,10 +56,9 @@ fun BeatFlowNavGraph() {
             )
         }
         composable(Routes.MEASUREMENT) {
-            val protocolTotal = Routes.pendingProtocolSecs
-            val inspirationSecs = Routes.pendingInspirationSecs
-            val expirationSecs = Routes.pendingExpirationSecs
-            Routes.pendingProtocolSecs = 0
+            val protocolTotal = remember { Routes.pendingProtocolSecs.also { Routes.pendingProtocolSecs = 0 } }
+            val inspirationSecs = remember { Routes.pendingInspirationSecs.also { Routes.pendingInspirationSecs = 5 } }
+            val expirationSecs = remember { Routes.pendingExpirationSecs.also { Routes.pendingExpirationSecs = 5 } }
             MeasurementScreen(
                 protocolTotalSecs = protocolTotal,
                 inspirationSecs = inspirationSecs,
