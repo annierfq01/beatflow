@@ -8,22 +8,35 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 
 object SoundPlayer {
+    @Volatile
     private var tone: ToneGenerator? = null
-    private var toneFailed = false
+    @Volatile
+    private var toneReady = false
 
-    fun beep(context: Context? = null) {
-        try {
-            if (tone == null && !toneFailed) {
+    fun init() {
+        if (toneReady) return
+        Thread {
+            try {
                 tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 50)
+                toneReady = true
+            } catch (_: Exception) {
+                toneReady = true
             }
-            tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 200)
-        } catch (_: Exception) {
-            if (!toneFailed) {
-                toneFailed = true
-                tone?.release()
-                tone = null
-            }
-            context?.let { vibrate(it) }
+        }.apply { isDaemon = true }.start()
+    }
+
+    fun beep(context: Context?) {
+        context?.let { vibrate(it) }
+        if (toneReady && tone != null) {
+            Thread {
+                try {
+                    tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 200)
+                } catch (_: Exception) {
+                    tone?.release()
+                    tone = null
+                    toneReady = false
+                }
+            }.apply { isDaemon = true }.start()
         }
     }
 
@@ -39,6 +52,6 @@ object SoundPlayer {
     fun release() {
         tone?.release()
         tone = null
-        toneFailed = false
+        toneReady = false
     }
 }

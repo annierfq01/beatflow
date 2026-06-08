@@ -26,6 +26,10 @@ class MeasurementViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
+    init {
+        SoundPlayer.init()
+    }
+
     private var _sessionId: Long? = null
 
     private val _hrHistory = MutableStateFlow<List<HrMeasurement>>(emptyList())
