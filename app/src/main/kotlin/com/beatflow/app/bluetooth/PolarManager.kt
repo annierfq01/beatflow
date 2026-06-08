@@ -358,7 +358,8 @@ class PolarManager @Inject constructor(
     }
 
     private fun startEcgStreamingInternal(deviceId: String) {
-        if (ecgDisposable != null && !ecgDisposable.isDisposed) {
+        val existing = ecgDisposable
+        if (existing != null && !existing.isDisposed) {
             Log.w(TAG, "ECG streaming already active")
             return
         }
@@ -399,7 +400,8 @@ class PolarManager @Inject constructor(
     }
 
     fun startHrStreaming(deviceId: String) {
-        if (hrDisposable != null && !hrDisposable.isDisposed) {
+        val existing = hrDisposable
+        if (existing != null && !existing.isDisposed) {
             Log.d(TAG, "HR streaming already active for device: $deviceId")
             return
         }
@@ -437,9 +439,15 @@ class PolarManager @Inject constructor(
         _hrMeasurements.value = null
     }
 
-    fun isHrStreamingActive(): Boolean = hrDisposable != null && !hrDisposable.isDisposed
+    fun isHrStreamingActive(): Boolean {
+        val d = hrDisposable
+        return d != null && !d.isDisposed
+    }
 
-    fun isEcgStreamingActive(): Boolean = ecgDisposable != null && !ecgDisposable.isDisposed
+    fun isEcgStreamingActive(): Boolean {
+        val d = ecgDisposable
+        return d != null && !d.isDisposed
+    }
 
     fun stopAllStreaming() {
         stopEcgStreaming()
