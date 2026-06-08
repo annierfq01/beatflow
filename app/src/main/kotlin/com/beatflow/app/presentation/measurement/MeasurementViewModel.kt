@@ -27,7 +27,9 @@ class MeasurementViewModel @Inject constructor(
 ) : ViewModel() {
 
     init {
-        SoundPlayer.init()
+        try {
+            SoundPlayer.init()
+        } catch (_: Exception) { }
     }
 
     private var _sessionId: Long? = null
@@ -91,7 +93,7 @@ class MeasurementViewModel @Inject constructor(
             resetBuffers()
             startStreaming()
             startTimers()
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Throwable) { e.printStackTrace() }
     }
 
     fun startSessionWithProtocol(totalSecs: Int, inspSecs: Int, expSecs: Int) {
@@ -105,7 +107,7 @@ class MeasurementViewModel @Inject constructor(
             startStreaming()
             startTimers()
             startProtocolTimer()
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Throwable) { e.printStackTrace() }
     }
 
     private fun resetBuffers() {
