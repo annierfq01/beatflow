@@ -34,13 +34,13 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlin.math.roundToInt
 import com.beatflow.app.bluetooth.ConnectionState
+import com.beatflow.app.presentation.navigation.Routes as AppRoutes
 import com.beatflow.app.presentation.theme.BeatFlowColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     onNavigateToMeasurement: () -> Unit,
-    onNavigateToProtocol: (Int, Int, Int) -> Unit = { _, _, _ -> },
     onNavigateToImport: () -> Unit = {},
     viewModel: BluetoothViewModel = hiltViewModel()
 ) {
@@ -446,7 +446,10 @@ fun MainScreen(
             confirmButton = {
                 Button(onClick = {
                     showProtocolDialog = false
-                    onNavigateToProtocol(protocolTotal * 60, protocolInsp, protocolExp)
+                    AppRoutes.pendingProtocolSecs = protocolTotal * 60
+                    AppRoutes.pendingInspirationSecs = protocolInsp
+                    AppRoutes.pendingExpirationSecs = protocolExp
+                    onNavigateToMeasurement()
                 }) { Text("INICIAR") }
             },
             dismissButton = {

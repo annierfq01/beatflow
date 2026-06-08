@@ -219,6 +219,7 @@ class MeasurementViewModel @Inject constructor(
 
         protocolJob = viewModelScope.launch {
             try {
+                SoundPlayer.beep(context)
                 while (totalLeft > 0) {
                     delay(1000)
                     totalLeft--
@@ -231,6 +232,7 @@ class MeasurementViewModel @Inject constructor(
                         phaseLeft = if (isInspiration) inspSecs else expSecs
                         _breathingPhase.value = if (isInspiration) "INSPIRA" else "EXPIRA"
                         _phaseTimeLeft.value = phaseLeft
+                        SoundPlayer.beep(context)
                     }
 
                     if (totalLeft <= 0) {
