@@ -1,10 +1,7 @@
 package com.beatflow.app.presentation.measurement
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
@@ -16,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -37,70 +33,32 @@ enum class ChartType(val label: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MeasurementScreen(
-    protocolTotalSecs: Int = 0,
-    inspirationSecs: Int = 5,
-    expirationSecs: Int = 5,
     onNavigateToPatientForm: (Long) -> Unit,
     onNavigateBack: () -> Unit,
     viewModel: MeasurementViewModel = hiltViewModel()
 ) {
-    val isProtocolMode = protocolTotalSecs > 0
-
     val hrHistory by viewModel.hrHistory.collectAsState()
-    val rrIntervals by viewModel.rrIntervals.collectAsState()
+    val ecgBuffer by viewModel.ecgBuffer.collectAsState()
+    val hrBuffer by viewModel.hrBuffer.collectAsState()
+    val rrBuffer by viewModel.rrBuffer.collectAsState()
     val sessionDuration by viewModel.sessionDuration.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val batteryLevel by viewModel.batteryLevel.collectAsState()
-    val breathingPhase by viewModel.breathingPhase.collectAsState()
-    val phaseTimeLeft by viewModel.phaseTimeLeft.collectAsState()
-    val protocolTimeLeft by viewModel.protocolTimeLeft.collectAsState()
-    val protocolCompleted by viewModel.protocolCompleted.collectAsState()
-
-    val ecgBuffer: List<Double> = if (isProtocolMode) {
-        remember { emptyList() }
-    } else {
-        viewModel.ecgBuffer.collectAsState().value
-    }
-
-    val hrBuffer: List<Float> = if (isProtocolMode) {
-        remember { emptyList() }
-    } else {
-        viewModel.hrBuffer.collectAsState().value
-    }
-
-    val rrBuffer: List<Float> = if (isProtocolMode) {
-        remember { emptyList() }
-    } else {
-        viewModel.rrBuffer.collectAsState().value
-    }
 
     var showStopConfirm by remember { mutableStateOf(false) }
-    var stopAction by remember { mutableStateOf<String?>(null) }
     var selectedChart by remember { mutableStateOf(ChartType.ECG) }
 
     LaunchedEffect(Unit) {
-        if (protocolTotalSecs > 0) {
-            viewModel.startSessionWithProtocol(protocolTotalSecs, inspirationSecs, expirationSecs)
-        } else {
-            viewModel.startSession()
-        }
-    }
-
-    LaunchedEffect(protocolCompleted) {
-        if (protocolCompleted) {
-            val sessionId = viewModel.stopSession()
-            onNavigateToPatientForm(sessionId)
-        }
+        viewModel.startSession()
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isProtocolMode) "Protocolo de respiración" else "Medición en curso") },
+                title = { Text("Medición en curso") },
                 navigationIcon = {
                     if (isRecording) {
                         TextButton(onClick = {
-                            stopAction = "CANCEL"
                             showStopConfirm = true
                         }) {
                             Text("Cancelar", color = BeatFlowColors.HeartRed)
@@ -139,160 +97,109 @@ fun MeasurementScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            if (isProtocolMode) {
-                // Protocol mode: only HR/RR + breathing guide + stop
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (hrHistory.isNotEmpty()) {
-                        val last = hrHistory.last()
-                        HrValueCard(hr = last.hr, rr = last.rr.lastOrNull())
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
+            TimerCard(sessionDuration)
 
-                    if (breathingPhase.isNotEmpty()) {
-                        BreathingGuideCard(
-                            phase = breathingPhase,
-                            phaseTimeLeft = phaseTimeLeft,
-                            protocolTimeLeft = protocolTimeLeft,
-                            maxPhaseTime = if (breathingPhase.contains("INSPIRA", ignoreCase = true)) inspirationSecs else expirationSecs
-                        )
-                    }
-                }
+            Spacer(modifier = Modifier.height(8.dp))
 
-                Button(
-                    onClick = {
-                        stopAction = "STOP"
-                        showStopConfirm = true
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BeatFlowColors.HeartRed
-                    )
-                ) {
-                    Icon(Icons.Default.Stop, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "DETENER",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                }
-            } else {
-                // Normal mode: timer + chart selector + chart + values + stop
-                TimerCard(sessionDuration)
+            ChartSelector(selectedChart) { selectedChart = it }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-                ChartSelector(selectedChart) { selectedChart = it }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Box(modifier = Modifier.weight(1f)) {
-                    when (selectedChart) {
-                        ChartType.ECG -> {
-                            if (ecgBuffer.isEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            MaterialTheme.colorScheme.surface,
-                                            RoundedCornerShape(12.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        "Esperando datos de ECG…\nConecta el sensor Polar H10",
-                                        textAlign = TextAlign.Center,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 16.sp
-                                    )
-                                }
-                            } else {
-                                EcgChart(ecgBuffer.map { it.toFloat() })
+            Box(modifier = Modifier.weight(1f)) {
+                when (selectedChart) {
+                    ChartType.ECG -> {
+                        if (ecgBuffer.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        MaterialTheme.colorScheme.surface,
+                                        RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Esperando datos de ECG…\nConecta el sensor Polar H10",
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 16.sp
+                                )
                             }
+                        } else {
+                            EcgChart(ecgBuffer.map { it.toFloat() })
                         }
-                        ChartType.HR -> {
-                            if (hrBuffer.isEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            MaterialTheme.colorScheme.surface,
-                                            RoundedCornerShape(12.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        "Esperando datos de frecuencia cardíaca…",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 16.sp
-                                    )
-                                }
-                            } else {
-                                HrChart(hrBuffer)
+                    }
+                    ChartType.HR -> {
+                        if (hrBuffer.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        MaterialTheme.colorScheme.surface,
+                                        RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Esperando datos de frecuencia cardíaca…",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 16.sp
+                                )
                             }
+                        } else {
+                            HrChart(hrBuffer)
                         }
-                        ChartType.RR -> {
-                            if (rrBuffer.isEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            MaterialTheme.colorScheme.surface,
-                                            RoundedCornerShape(12.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        "Esperando intervalos RR…",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 16.sp
-                                    )
-                                }
-                            } else {
-                                RrChart(rrBuffer)
+                    }
+                    ChartType.RR -> {
+                        if (rrBuffer.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        MaterialTheme.colorScheme.surface,
+                                        RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Esperando intervalos RR…",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 16.sp
+                                )
                             }
+                        } else {
+                            RrChart(rrBuffer)
                         }
                     }
                 }
+            }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (hrHistory.isNotEmpty()) {
+                val last = hrHistory.last()
+                HrValueCard(hr = last.hr, rr = last.rr.lastOrNull())
                 Spacer(modifier = Modifier.height(8.dp))
+            }
 
-                if (hrHistory.isNotEmpty()) {
-                    val last = hrHistory.last()
-                    HrValueCard(hr = last.hr, rr = last.rr.lastOrNull())
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                Button(
-                    onClick = {
-                        stopAction = "STOP"
-                        showStopConfirm = true
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BeatFlowColors.HeartRed
-                    )
-                ) {
-                    Icon(Icons.Default.Stop, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "DETENER",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                }
+            Button(
+                onClick = { showStopConfirm = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BeatFlowColors.HeartRed
+                )
+            ) {
+                Icon(Icons.Default.Stop, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "DETENER",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
             }
         }
     }
@@ -300,24 +207,14 @@ fun MeasurementScreen(
     if (showStopConfirm) {
         AlertDialog(
             onDismissRequest = { showStopConfirm = false },
-            title = {
-                Text(if (stopAction == "CANCEL") "¿Cancelar medición?" else "¿Detener medición?")
-            },
-            text = {
-                Text(
-                    if (stopAction == "CANCEL") "Volverás al inicio."
-                    else "La sesión se guardará y podrás ingresar los datos del paciente."
-                )
-            },
+            title = { Text("¿Detener medición?") },
+            text = { Text("La sesión se guardará y podrás ingresar los datos del paciente.") },
             confirmButton = {
                 Button(
                     onClick = {
                         showStopConfirm = false
                         val sessionId = viewModel.stopSession()
-                        when (stopAction) {
-                            "CANCEL" -> onNavigateBack()
-                            else -> onNavigateToPatientForm(sessionId)
-                        }
+                        onNavigateToPatientForm(sessionId)
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BeatFlowColors.HeartRed)
                 ) { Text("DETENER") }
@@ -478,68 +375,6 @@ private fun HrValueCard(hr: Int, rr: Double?) {
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun BreathingGuideCard(
-    phase: String,
-    phaseTimeLeft: Int,
-    protocolTimeLeft: Int,
-    maxPhaseTime: Int
-) {
-    val isInhale = phase.contains("INSPIRA", ignoreCase = true)
-    val circleColor = if (isInhale) BeatFlowColors.Primary else BeatFlowColors.HeartRed
-    val circleSize by animateDpAsState(
-        targetValue = if (isInhale) 140.dp else 100.dp,
-        animationSpec = tween(500)
-    )
-    val phaseFraction = if (maxPhaseTime > 0) phaseTimeLeft.toFloat() / maxPhaseTime else 0f
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(circleSize)
-                    .clip(CircleShape)
-                    .background(circleColor.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = phase,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = circleColor
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "$phaseTimeLeft s",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                fontFamily = FontFamily.Monospace,
-                color = circleColor.copy(alpha = 0.8f)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            LinearProgressIndicator(
-                progress = { phaseFraction },
-                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
-                color = circleColor,
-                trackColor = circleColor.copy(alpha = 0.15f)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Protocolo: ${protocolTimeLeft / 60}:%02d".format(protocolTimeLeft % 60),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

@@ -14,6 +14,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,7 +81,7 @@ class MeasurementViewModel @Inject constructor(
     private var protocolTotalSecs = 0
     private var inspirationSecs = 5
     private var expirationSecs = 5
-    private val bufferLock = Any()
+    private val bufferMutex = Mutex()
     private val ecgPersistenceBuffer = mutableListOf<Double>()
     private val pendingRecords = mutableListOf<RawRecord>()
     private var lastHr = 60f
@@ -153,12 +155,12 @@ class MeasurementViewModel @Inject constructor(
             while (true) {
                 delay(500)
                 val toSave: List<Double>
-                synchronized(bufferLock) {
+                bufferMutex.withLock {
                     toSave = ecgPersistenceBuffer.toList()
                     ecgPersistenceBuffer.clear()
                 }
                 val timestamp = System.currentTimeMillis()
-                synchronized(bufferLock) {
+                bufferMutex.withLock {
                     toSave.forEach { value ->
                         pendingRecords.add(
                             RawRecord(timestamp = timestamp, hr = null, rr = null, ecgSignal = value)
@@ -166,7 +168,7 @@ class MeasurementViewModel @Inject constructor(
                     }
                 }
                 val shouldFlush: Boolean
-                synchronized(bufferLock) { shouldFlush = pendingRecords.size >= 50 }
+                bufferMutex.withLock { shouldFlush = pendingRecords.size >= 50 }
                 if (shouldFlush) flushRecords()
             }
         }
@@ -179,7 +181,7 @@ class MeasurementViewModel @Inject constructor(
                         _hrHistory.value = prevHistory + measurement
 
                         lastHr = measurement.hr.toFloat()
-                        synchronized(bufferLock) {
+                        bufferMutex.withLock {
                             measurement.rr.forEach { rrMs ->
                                 lastRr = rrMs.toFloat()
                                 _rrIntervals.value = _rrIntervals.value + rrMs
@@ -196,7 +198,7 @@ class MeasurementViewModel @Inject constructor(
                         _hrBuffer.value = hrRingBuffer.toList()
 
                         val shouldFlush: Boolean
-                        synchronized(bufferLock) { shouldFlush = pendingRecords.size >= 10 }
+                        bufferMutex.withLock { shouldFlush = pendingRecords.size >= 10 }
                         if (shouldFlush) flushRecords()
                     }
                 }
@@ -207,7 +209,7 @@ class MeasurementViewModel @Inject constructor(
             try {
                 polarManager.ecgSamples.collect { samples ->
                     if (samples.isNotEmpty()) {
-                        synchronized(bufferLock) {
+                        bufferMutex.withLock {
                             ecgPersistenceBuffer.addAll(samples)
                         }
                         samples.forEach { value ->
@@ -235,7 +237,7 @@ class MeasurementViewModel @Inject constructor(
         var phaseLeft = inspSecs
 
         viewModelScope.launch(Dispatchers.Default) {
-            SoundPlayer.beep(context)
+            try { SoundPlayer.beep(context) } catch (_: Exception) { }
         }
         protocolJob = viewModelScope.launch {
             while (totalLeft > 0) {
@@ -251,7 +253,7 @@ class MeasurementViewModel @Inject constructor(
                     _breathingPhase.value = if (isInspiration) "INSPIRA" else "EXPIRA"
                     _phaseTimeLeft.value = phaseLeft
                     viewModelScope.launch(Dispatchers.Default) {
-                        SoundPlayer.beep(context)
+                        try { SoundPlayer.beep(context) } catch (_: Exception) { }
                     }
                 }
 
@@ -285,9 +287,10 @@ class MeasurementViewModel @Inject constructor(
     private fun flushRecords() {
         val sid = _sessionId ?: return
         val batch: List<RawRecord>
-        synchronized(bufferLock) {
-            batch = pendingRecords.toList()
-            pendingRecords.clear()
+        kotlinx.coroutines.runBlocking {
+            batch = bufferMutex.withLock {
+                pendingRecords.toList().also { it.clear() }
+            }
         }
         viewModelScope.launch {
             sessionRepository.addRecords(sid, batch)

@@ -41,6 +41,7 @@ import com.beatflow.app.presentation.theme.BeatFlowColors
 @Composable
 fun MainScreen(
     onNavigateToMeasurement: () -> Unit,
+    onNavigateToProtocolMeasurement: () -> Unit = {},
     onNavigateToImport: () -> Unit = {},
     viewModel: BluetoothViewModel = hiltViewModel()
 ) {
@@ -449,7 +450,7 @@ fun MainScreen(
                     AppRoutes.pendingProtocolSecs = protocolTotal * 60
                     AppRoutes.pendingInspirationSecs = protocolInsp
                     AppRoutes.pendingExpirationSecs = protocolExp
-                    onNavigateToMeasurement()
+                    onNavigateToProtocolMeasurement()
                 }) { Text("INICIAR") }
             },
             dismissButton = {

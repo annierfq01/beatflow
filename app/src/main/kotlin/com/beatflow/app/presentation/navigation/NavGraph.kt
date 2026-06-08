@@ -10,12 +10,14 @@ import androidx.navigation.navArgument
 import com.beatflow.app.presentation.importdata.ImportScreen
 import com.beatflow.app.presentation.main.MainScreen
 import com.beatflow.app.presentation.measurement.MeasurementScreen
+import com.beatflow.app.presentation.measurement.ProtocolMeasurementScreen
 import com.beatflow.app.presentation.patient.PatientFormScreen
 import com.beatflow.app.presentation.report.ReportScreen
 
 object Routes {
     const val MAIN = "main"
     const val MEASUREMENT = "measurement"
+    const val PROTOCOL_MEASUREMENT = "protocol_measurement"
     const val PATIENT_FORM = "patient_form/{sessionId}"
     const val REPORT = "report/{sessionId}"
     const val IMPORT = "import"
@@ -41,9 +43,34 @@ fun BeatFlowNavGraph() {
                 onNavigateToMeasurement = {
                     navController.navigate(Routes.MEASUREMENT)
                 },
+                onNavigateToProtocolMeasurement = {
+                    navController.navigate(Routes.PROTOCOL_MEASUREMENT)
+                },
                 onNavigateToImport = {
                     navController.navigate(Routes.IMPORT)
                 }
+            )
+        }
+        composable(Routes.MEASUREMENT) {
+            MeasurementScreen(
+                onNavigateToPatientForm = { sessionId ->
+                    navController.navigate(Routes.patientForm(sessionId))
+                },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Routes.PROTOCOL_MEASUREMENT) {
+            val protocolTotal = remember { Routes.pendingProtocolSecs.also { Routes.pendingProtocolSecs = 0 } }
+            val inspirationSecs = remember { Routes.pendingInspirationSecs.also { Routes.pendingInspirationSecs = 5 } }
+            val expirationSecs = remember { Routes.pendingExpirationSecs.also { Routes.pendingExpirationSecs = 5 } }
+            ProtocolMeasurementScreen(
+                protocolTotalSecs = protocolTotal,
+                inspirationSecs = inspirationSecs,
+                expirationSecs = expirationSecs,
+                onNavigateToPatientForm = { sessionId ->
+                    navController.navigate(Routes.patientForm(sessionId))
+                },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(Routes.IMPORT) {
@@ -53,20 +80,6 @@ fun BeatFlowNavGraph() {
                         popUpTo(Routes.MAIN) { inclusive = true }
                     }
                 }
-            )
-        }
-        composable(Routes.MEASUREMENT) {
-            val protocolTotal = remember { Routes.pendingProtocolSecs.also { Routes.pendingProtocolSecs = 0 } }
-            val inspirationSecs = remember { Routes.pendingInspirationSecs.also { Routes.pendingInspirationSecs = 5 } }
-            val expirationSecs = remember { Routes.pendingExpirationSecs.also { Routes.pendingExpirationSecs = 5 } }
-            MeasurementScreen(
-                protocolTotalSecs = protocolTotal,
-                inspirationSecs = inspirationSecs,
-                expirationSecs = expirationSecs,
-                onNavigateToPatientForm = { sessionId ->
-                    navController.navigate(Routes.patientForm(sessionId))
-                },
-                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(

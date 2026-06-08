@@ -26,13 +26,15 @@ object SoundPlayer {
     }
 
     fun beep(context: Context?) {
-        context?.let { vibrate(it) }
+        try {
+            context?.let { vibrate(it) }
+        } catch (_: Exception) { }
         if (toneReady && tone != null) {
             Thread {
                 try {
                     tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 200)
                 } catch (_: Exception) {
-                    tone?.release()
+                    try { tone?.release() } catch (_: Exception) { }
                     tone = null
                     toneReady = false
                 }
@@ -45,12 +47,15 @@ object SoundPlayer {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
         } else {
+            @Suppress("DEPRECATION")
             vibrator.vibrate(200)
         }
     }
 
     fun release() {
-        tone?.release()
+        try {
+            tone?.release()
+        } catch (_: Exception) { }
         tone = null
         toneReady = false
     }
