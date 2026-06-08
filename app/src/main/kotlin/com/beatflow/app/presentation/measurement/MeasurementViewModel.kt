@@ -288,8 +288,9 @@ class MeasurementViewModel @Inject constructor(
         val sid = _sessionId ?: return
         val batch: List<RawRecord>
         kotlinx.coroutines.runBlocking {
-            batch = bufferMutex.withLock {
-                pendingRecords.toList().also { it.clear() }
+            bufferMutex.withLock {
+                batch = pendingRecords.toList()
+                pendingRecords.clear()
             }
         }
         viewModelScope.launch {
