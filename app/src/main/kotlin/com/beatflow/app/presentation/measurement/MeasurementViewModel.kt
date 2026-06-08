@@ -147,42 +147,46 @@ class MeasurementViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            polarManager.hrMeasurements.collect { measurement ->
-                if (measurement != null) {
-                    val prevHistory = _hrHistory.value
-                    _hrHistory.value = prevHistory + measurement
+            try {
+                polarManager.hrMeasurements.collect { measurement ->
+                    if (measurement != null) {
+                        val prevHistory = _hrHistory.value
+                        _hrHistory.value = prevHistory + measurement
 
-                    lastHr = measurement.hr.toFloat()
-                    measurement.rr.forEach { rrMs ->
-                        lastRr = rrMs.toFloat()
-                        _rrIntervals.value = _rrIntervals.value + rrMs
-                        rrRingBuffer.addLast(lastRr)
-                        if (rrRingBuffer.size > RR_BUFFER_SIZE) rrRingBuffer.removeFirst()
-                        pendingRecords.add(
-                            RawRecord(timestamp = measurement.timestamp, hr = measurement.hr, rr = rrMs, ecgSignal = null)
-                        )
+                        lastHr = measurement.hr.toFloat()
+                        measurement.rr.forEach { rrMs ->
+                            lastRr = rrMs.toFloat()
+                            _rrIntervals.value = _rrIntervals.value + rrMs
+                            rrRingBuffer.addLast(lastRr)
+                            if (rrRingBuffer.size > RR_BUFFER_SIZE) rrRingBuffer.removeFirst()
+                            pendingRecords.add(
+                                RawRecord(timestamp = measurement.timestamp, hr = measurement.hr, rr = rrMs, ecgSignal = null)
+                            )
+                        }
+                        _rrBuffer.value = rrRingBuffer.toList()
+                        hrRingBuffer.addLast(lastHr)
+                        if (hrRingBuffer.size > HR_BUFFER_SIZE) hrRingBuffer.removeFirst()
+                        _hrBuffer.value = hrRingBuffer.toList()
+
+                        if (pendingRecords.size >= 10) flushRecords()
                     }
-                    _rrBuffer.value = rrRingBuffer.toList()
-                    hrRingBuffer.addLast(lastHr)
-                    if (hrRingBuffer.size > HR_BUFFER_SIZE) hrRingBuffer.removeFirst()
-                    _hrBuffer.value = hrRingBuffer.toList()
-
-                    if (pendingRecords.size >= 10) flushRecords()
                 }
-            }
+            } catch (_: Exception) { }
         }
 
         viewModelScope.launch {
-            polarManager.ecgSamples.collect { samples ->
-                if (samples.isNotEmpty()) {
-                    ecgPersistenceBuffer.addAll(samples)
-                    samples.forEach { value ->
-                        ecgRingBuffer.addLast(value.toFloat())
-                        if (ecgRingBuffer.size > ECG_BUFFER_SIZE) ecgRingBuffer.removeFirst()
+            try {
+                polarManager.ecgSamples.collect { samples ->
+                    if (samples.isNotEmpty()) {
+                        ecgPersistenceBuffer.addAll(samples)
+                        samples.forEach { value ->
+                            ecgRingBuffer.addLast(value.toFloat())
+                            if (ecgRingBuffer.size > ECG_BUFFER_SIZE) ecgRingBuffer.removeFirst()
+                        }
+                        _ecgBuffer.value = ecgRingBuffer.map { it.toDouble() }
                     }
-                    _ecgBuffer.value = ecgRingBuffer.map { it.toDouble() }
                 }
-            }
+            } catch (_: Exception) { }
         }
     }
 
@@ -196,32 +200,33 @@ class MeasurementViewModel @Inject constructor(
         SoundPlayer.beep()
 
         protocolJob = viewModelScope.launch {
-            while (totalLeft > 0) {
-                delay(1000)
-                totalLeft--
-                phaseLeft--
-                _protocolTimeLeft.value = totalLeft
-                _phaseTimeLeft.value = phaseLeft
-
-                if (phaseLeft <= 0) {
-                    isInspiration = !isInspiration
-                    phaseLeft = if (isInspiration) inspirationSecs else expirationSecs
-                    _breathingPhase.value = if (isInspiration) "INSPIRA" else "EXPIRA"
+            try {
+                while (totalLeft > 0) {
+                    delay(1000)
+                    totalLeft--
+                    phaseLeft--
+                    _protocolTimeLeft.value = totalLeft
                     _phaseTimeLeft.value = phaseLeft
-                    SoundPlayer.beep()
-                }
 
-                if (totalLeft <= 0) {
-                    _isRecording.value = false
-                    timerJob?.cancel()
-                    ecgSaveJob?.cancel()
-                    protocolJob?.cancel()
-                    polarManager.stopAllStreaming()
-                    flushRecords()
-                    _breathingPhase.value = "COMPLETADO"
-                    _protocolCompleted.value = true
+                    if (phaseLeft <= 0) {
+                        isInspiration = !isInspiration
+                        phaseLeft = if (isInspiration) inspirationSecs else expirationSecs
+                        _breathingPhase.value = if (isInspiration) "INSPIRA" else "EXPIRA"
+                        _phaseTimeLeft.value = phaseLeft
+                        SoundPlayer.beep()
+                    }
+
+                    if (totalLeft <= 0) {
+                        _isRecording.value = false
+                        timerJob?.cancel()
+                        ecgSaveJob?.cancel()
+                        polarManager.stopAllStreaming()
+                        flushRecords()
+                        _breathingPhase.value = "COMPLETADO"
+                        _protocolCompleted.value = true
+                    }
                 }
-            }
+            } catch (_: Exception) { }
         }
     }
 
