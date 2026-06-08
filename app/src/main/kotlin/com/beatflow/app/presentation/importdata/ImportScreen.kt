@@ -212,7 +212,7 @@ private fun ImportedDataContent(
                             rrSaveLauncher.launch(name)
                         }
                     ) {
-                        Icon(Icons.Default.FavoriteBorder, contentDescription = "Guardar RR")
+                        Icon(Icons.Default.Share, contentDescription = "Exportar RR")
                     }
                 }
             }

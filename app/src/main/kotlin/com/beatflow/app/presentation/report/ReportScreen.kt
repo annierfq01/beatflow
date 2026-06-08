@@ -97,7 +97,7 @@ fun ReportScreen(
                         val name = "${patient?.nombre ?: "desconocido"}_${patient?.apellidos ?: ""}_RR.txt"
                         rrSaveLauncher.launch(name)
                     }) {
-                        Icon(Icons.Default.FavoriteBorder, contentDescription = "Guardar RR")
+                        Icon(Icons.Default.Share, contentDescription = "Exportar RR")
                     }
                 }
             )
