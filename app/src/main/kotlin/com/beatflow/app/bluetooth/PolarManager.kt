@@ -398,6 +398,26 @@ class PolarManager @Inject constructor(
         startEcgStreaming(deviceId)
     }
 
+    fun startHrStreaming(deviceId: String) {
+        Log.d(TAG, "startHrStreaming called for device: $deviceId")
+        hrDisposable?.dispose()
+        hrDisposable = api.startHrStreaming(deviceId)
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                { hrData: PolarHrData ->
+                    val sample = hrData.samples.firstOrNull()
+                    if (sample != null) {
+                        _hrMeasurements.value = HrMeasurement(
+                            hr = sample.hr,
+                            rr = sample.rrsMs.map { it.toDouble() },
+                            timestamp = System.currentTimeMillis()
+                        )
+                    }
+                },
+                { error -> Log.e(TAG, "HR streaming error: ${error.message}", error) }
+            )
+    }
+
     fun stopEcgStreaming() {
         Log.d(TAG, "Stopping ECG streaming")
         ecgDisposable?.dispose()

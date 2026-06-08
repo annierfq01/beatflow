@@ -76,23 +76,27 @@ class MeasurementViewModel @Inject constructor(
     private val ecgRingBuffer = ArrayDeque<Float>()
 
     fun startSession() {
-        sessionStartTime = System.currentTimeMillis()
-        _isRecording.value = true
-        resetBuffers()
-        startStreaming()
-        startTimers()
+        try {
+            sessionStartTime = System.currentTimeMillis()
+            _isRecording.value = true
+            resetBuffers()
+            startStreaming()
+            startTimers()
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     fun startSessionWithProtocol(totalSecs: Int, inspSecs: Int, expSecs: Int) {
-        protocolTotalSecs = totalSecs
-        inspirationSecs = inspSecs
-        expirationSecs = expSecs
-        sessionStartTime = System.currentTimeMillis()
-        _isRecording.value = true
-        resetBuffers()
-        startStreaming()
-        startTimers()
-        startProtocolTimer()
+        try {
+            protocolTotalSecs = totalSecs
+            inspirationSecs = inspSecs
+            expirationSecs = expSecs
+            sessionStartTime = System.currentTimeMillis()
+            _isRecording.value = true
+            resetBuffers()
+            startStreaming()
+            startTimers()
+            startProtocolTimer()
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     private fun resetBuffers() {
@@ -115,6 +119,7 @@ class MeasurementViewModel @Inject constructor(
     private fun startStreaming() {
         val connectedDeviceId = (polarManager.connectionState.value as? ConnectionState.Connected)?.deviceId
         if (connectedDeviceId != null) {
+            polarManager.startHrStreaming(connectedDeviceId)
             polarManager.startEcgStreaming(connectedDeviceId)
         }
 
