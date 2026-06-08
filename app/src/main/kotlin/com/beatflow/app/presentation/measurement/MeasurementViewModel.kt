@@ -1,5 +1,6 @@
 package com.beatflow.app.presentation.measurement
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.beatflow.app.bluetooth.ConnectionState
@@ -9,6 +10,7 @@ import com.beatflow.app.data.repository.SessionRepository
 import com.beatflow.app.domain.model.RawRecord
 import com.beatflow.app.util.SoundPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +22,8 @@ import javax.inject.Inject
 @HiltViewModel
 class MeasurementViewModel @Inject constructor(
     private val polarManager: PolarManager,
-    private val sessionRepository: SessionRepository
+    private val sessionRepository: SessionRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private var _sessionId: Long? = null
@@ -63,6 +66,8 @@ class MeasurementViewModel @Inject constructor(
     private var timerJob: Job? = null
     private var ecgSaveJob: Job? = null
     private var protocolJob: Job? = null
+    private var hrCollectorJob: Job? = null
+    private var ecgCollectorJob: Job? = null
     private var sessionStartTime: Long = 0L
     private var protocolTotalSecs = 0
     private var inspirationSecs = 5
@@ -151,7 +156,7 @@ class MeasurementViewModel @Inject constructor(
             }
         }
 
-        viewModelScope.launch {
+        hrCollectorJob = viewModelScope.launch {
             try {
                 polarManager.hrMeasurements.collect { measurement ->
                     if (measurement != null) {
@@ -179,7 +184,7 @@ class MeasurementViewModel @Inject constructor(
             } catch (_: Exception) { }
         }
 
-        viewModelScope.launch {
+        ecgCollectorJob = viewModelScope.launch {
             try {
                 polarManager.ecgSamples.collect { samples ->
                     if (samples.isNotEmpty()) {
@@ -196,16 +201,19 @@ class MeasurementViewModel @Inject constructor(
     }
 
     private fun startProtocolTimer() {
-        var totalLeft = protocolTotalSecs
-        var isInspiration = true
-        var phaseLeft = inspirationSecs
-        _protocolTimeLeft.value = totalLeft
+        val totalSecs = protocolTotalSecs
+        val inspSecs = inspirationSecs
+        val expSecs = expirationSecs
         _breathingPhase.value = "INSPIRA"
-        _phaseTimeLeft.value = phaseLeft
-        SoundPlayer.beep()
+        _phaseTimeLeft.value = inspSecs
+        _protocolTimeLeft.value = totalSecs
+        var totalLeft = totalSecs
+        var isInspiration = true
+        var phaseLeft = inspSecs
 
         protocolJob = viewModelScope.launch {
             try {
+                SoundPlayer.beep(context)
                 while (totalLeft > 0) {
                     delay(1000)
                     totalLeft--
@@ -215,17 +223,16 @@ class MeasurementViewModel @Inject constructor(
 
                     if (phaseLeft <= 0) {
                         isInspiration = !isInspiration
-                        phaseLeft = if (isInspiration) inspirationSecs else expirationSecs
+                        phaseLeft = if (isInspiration) inspSecs else expSecs
                         _breathingPhase.value = if (isInspiration) "INSPIRA" else "EXPIRA"
                         _phaseTimeLeft.value = phaseLeft
-                        SoundPlayer.beep()
+                        SoundPlayer.beep(context)
                     }
 
                     if (totalLeft <= 0) {
                         _isRecording.value = false
                         timerJob?.cancel()
                         ecgSaveJob?.cancel()
-                        polarManager.stopAllStreaming()
                         flushRecords()
                         _breathingPhase.value = "COMPLETADO"
                         _protocolCompleted.value = true
@@ -240,7 +247,8 @@ class MeasurementViewModel @Inject constructor(
         timerJob?.cancel()
         ecgSaveJob?.cancel()
         protocolJob?.cancel()
-        polarManager.stopAllStreaming()
+        hrCollectorJob?.cancel()
+        ecgCollectorJob?.cancel()
         SoundPlayer.release()
         _hrHistory.value = emptyList()
         _rrIntervals.value = emptyList()
@@ -263,6 +271,8 @@ class MeasurementViewModel @Inject constructor(
         timerJob?.cancel()
         ecgSaveJob?.cancel()
         protocolJob?.cancel()
+        hrCollectorJob?.cancel()
+        ecgCollectorJob?.cancel()
         polarManager.stopAllStreaming()
         SoundPlayer.release()
         flushRecords()

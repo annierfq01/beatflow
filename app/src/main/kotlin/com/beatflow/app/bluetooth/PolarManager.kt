@@ -358,7 +358,7 @@ class PolarManager @Inject constructor(
     }
 
     private fun startEcgStreamingInternal(deviceId: String) {
-        if (ecgDisposable != null) {
+        if (ecgDisposable != null && !ecgDisposable.isDisposed) {
             Log.w(TAG, "ECG streaming already active")
             return
         }
@@ -399,8 +399,11 @@ class PolarManager @Inject constructor(
     }
 
     fun startHrStreaming(deviceId: String) {
+        if (hrDisposable != null && !hrDisposable.isDisposed) {
+            Log.d(TAG, "HR streaming already active for device: $deviceId")
+            return
+        }
         Log.d(TAG, "startHrStreaming called for device: $deviceId")
-        hrDisposable?.dispose()
         hrDisposable = api.startHrStreaming(deviceId)
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(
@@ -433,6 +436,10 @@ class PolarManager @Inject constructor(
         hrDisposable = null
         _hrMeasurements.value = null
     }
+
+    fun isHrStreamingActive(): Boolean = hrDisposable != null && !hrDisposable.isDisposed
+
+    fun isEcgStreamingActive(): Boolean = ecgDisposable != null && !ecgDisposable.isDisposed
 
     fun stopAllStreaming() {
         stopEcgStreaming()
