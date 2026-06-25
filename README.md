@@ -5,13 +5,16 @@ Aplicación Android nativa en Kotlin para medir y analizar la **Variabilidad de 
 ## Características
 
 - **Conexión BLE** con dispositivos Polar H10 — escaneo, conexión y streaming de HR/RR/ECG
-- **Grabación en tiempo real** con gráfico de frecuencia cardíaca y cronómetro
+- **Tres protocolos de medición:**
+  - **Reposo/Basal**: Medición en reposo con cuenta regresiva
+  - **Test de Respiración**: Respiración guiada con círculo animado (inspiración/espiración)
+  - **Test Ortostático**: Registro continuo con cambio postural, círculo con tiempo para ponerse de pie
 - **Captura de datos del paciente** (nombre, edad, sexo)
 - **Cálculo completo de métricas HRV:**
   - Dominio del tiempo: Mean HR, SDNN, RMSSD, pNN50, Max HR, Min HR
   - Dominio de la frecuencia: LF, HF, LF/HF (FFT personalizado)
   - No lineales: SD1, SD2 (Poincaré plot)
-- **Exportación** a archivo `.hrv` (ZIP conteniendo CSV + JSON)
+- **Exportación** a archivo `.hrv` (ZIP conteniendo CSV + TXT + JSON)
 - **100% offline** — sin conexión a internet, sin servidores, sin telemetría
 
 ## Arquitectura
@@ -98,16 +101,16 @@ app/
 
 ## Formato de exportación (.hrv)
 
-El archivo `.hrv` es un **ZIP** que contiene cuatro archivos: tres CSVs separados por tipo de dato y un JSON con metadatos y métricas.
+El archivo `.hrv` es un **ZIP** que contiene cuatro archivos: CSVs para datos de HR y ECG, un TXT para intervalos RR, y un JSON con metadatos, configuración del protocolo y métricas.
 
 ### Estructura del ZIP
 
 ```
 archivo.hrv
 ├── hr_data.csv        # Datos de frecuencia cardíaca
-├── rr_data.csv        # Intervalos RR
+├── rr_data.txt        # Intervalos RR (texto plano, un valor por línea)
 ├── ecg_data.csv       # Señal de ECG
-└── session.json       # Metadatos, paciente y métricas HRV
+└── session.json       # Metadatos, paciente, protocolo y métricas HRV
 ```
 
 ### `hr_data.csv`
@@ -126,20 +129,15 @@ timestamp,hr
 1717200001000,71
 ```
 
-### `rr_data.csv`
+### `rr_data.txt`
 
-Intervalo RR (tiempo entre latidos consecutivos) en milisegundos.
-
-| Columna | Descripción | Ejemplo |
-|---|---|---|
-| `timestamp` | Unix timestamp en milisegundos (epoch) | `1717200000000` |
-| `rr_ms` | Intervalo RR en milisegundos | `833.0` |
+Intervalo RR (tiempo entre latidos consecutivos) en milisegundos. Formato de texto plano, un valor por línea (compatible con BeatFlowPC).
 
 ```
-timestamp,rr_ms
-1717200000000,833.0
-1717200000500,820.5
-1717200001000,845.2
+833.0
+820.5
+845.2
+812.0
 ```
 
 ### `ecg_data.csv`
@@ -162,6 +160,8 @@ timestamp,ecg_signal
 
 Objeto JSON con los siguientes campos:
 
+#### Ejemplo: Protocolo Basal (Reposo)
+
 ```json
 {
   "patient": {
@@ -175,6 +175,10 @@ Objeto JSON con los siguientes campos:
     "endTime": "2025-06-01 10:35:00",
     "durationMs": 300000,
     "totalRecords": 1250
+  },
+  "protocol": {
+    "type": "basal",
+    "totalTimeSecs": 300
   },
   "metrics": {
     "timeDomain": {
@@ -211,6 +215,33 @@ Objeto JSON con los siguientes campos:
 }
 ```
 
+#### Ejemplo: Protocolo Test Respiración
+
+```json
+{
+  "protocol": {
+    "type": "respiracion",
+    "totalTimeSecs": 300,
+    "inspirationSecs": 5,
+    "expirationSecs": 5
+  }
+}
+```
+
+#### Ejemplo: Protocolo Test Ortostático
+
+```json
+{
+  "protocol": {
+    "type": "ortostatico",
+    "totalTimeSecs": 480,
+    "standUpSecs": 120
+  }
+}
+```
+
+#### Campos completos
+
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `patient.nombre` | string | Nombre del paciente |
@@ -221,11 +252,17 @@ Objeto JSON con los siguientes campos:
 | `session.endTime` | string | Fin de la sesión (yyyy-MM-dd HH:mm:ss) |
 | `session.durationMs` | long | Duración total en milisegundos |
 | `session.totalRecords` | int | Número total de registros (HR+RR+ECG combinados) |
+| `protocol.type` | string | Tipo de protocolo: `"basal"`, `"respiracion"` u `"ortostatico"` |
+| `protocol.totalTimeSecs` | int | Duración total configurada en segundos |
+| `protocol.inspirationSecs` | int | (Solo respiración) Segundos de inspiración |
+| `protocol.expirationSecs` | int | (Solo respiración) Segundos de espiración |
+| `protocol.standUpSecs` | int | (Solo ortostático) Segundo en que el sujeto se pone de pie |
 | `metrics.timeDomain.*` | double | Métricas de dominio temporal |
 | `metrics.frequencyDomain.*` | double | Métricas de dominio frecuencial (FFT) |
 | `metrics.nonLinear.*` | double | Métricas no lineales (Poincaré) |
 | `metadata.*` | string | Metadatos de la aplicación |
 
+El campo `protocol` está presente solo cuando se usó un protocolo de medición.
 El campo `metrics` es opcional: puede estar ausente si no hay suficientes datos de RR (< 30 latidos) para el cálculo HRV.
 
 ## Privacidad

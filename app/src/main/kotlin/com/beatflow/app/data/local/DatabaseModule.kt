@@ -21,7 +21,7 @@ object DatabaseModule {
             context,
             BeatFlowDatabase::class.java,
             BeatFlowDatabase.DATABASE_NAME
-        ).build()
+        ).fallbackToDestructiveMigration().build()
     }
 
     @Provides

@@ -8,7 +8,9 @@ import com.beatflow.app.domain.HrvCalculator
 import com.beatflow.app.domain.model.HrvMetrics
 import com.beatflow.app.domain.model.HrvSession
 import com.beatflow.app.domain.model.PatientData
+import com.beatflow.app.domain.model.ProtocolConfig
 import com.beatflow.app.export.FileExporter
+import kotlinx.serialization.json.Json
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,13 +68,21 @@ class ReportViewModel @Inject constructor(
 
                 val duration = (sessionEntity.endTime ?: sessionEntity.startTime) - sessionEntity.startTime
 
+                val protocolConfig = sessionEntity.protocolConfigJson?.let {
+                    try {
+                        Json { ignoreUnknownKeys = true }
+                            .decodeFromString<ProtocolConfig>(it)
+                    } catch (_: Exception) { null }
+                }
+
                 _session.value = HrvSession(
                     patientData = patientData,
                     startTime = sessionEntity.startTime,
                     endTime = sessionEntity.endTime ?: sessionEntity.startTime,
                     durationMs = duration,
                     records = records,
-                    metrics = hrvMetrics
+                    metrics = hrvMetrics,
+                    protocolConfig = protocolConfig
                 )
                 _metrics.value = hrvMetrics
             } catch (e: Exception) {

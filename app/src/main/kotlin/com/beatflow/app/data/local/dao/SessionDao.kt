@@ -21,6 +21,9 @@ interface SessionDao {
     @Query("UPDATE sessions SET endTime = :endTime, patientNombre = :nombre, patientApellidos = :apellidos, patientEdad = :edad, patientSexo = :sexo WHERE id = :id")
     suspend fun finalizeSession(id: Long, endTime: Long, nombre: String, apellidos: String, edad: Int, sexo: String)
 
+    @Query("UPDATE sessions SET protocolConfigJson = :json WHERE id = :id")
+    suspend fun updateProtocolConfig(id: Long, json: String?)
+
     @Insert
     suspend fun insertRecords(records: List<RawRecordEntity>)
 

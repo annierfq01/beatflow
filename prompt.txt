@@ -1,1 +1,26 @@
-Implementa en la pantalla de inicio, debajo del boton de inicar la medicion, un boton de iniciar protocolo, que se activa igual que el anterior cuando esta conectado al polar, cuando este presiona sale una ventana con la configuracion del test de respiracion controlada, donde se define el tiempo total de medicion (por defecto 5 minutos), y los segundos para inspiracion(5seg default) y expiracion (5 seg default), esto hara que en la ventana donde se muestran los graficos, frecuencia cardiaca... salga una seccion adicional(como mismo salen los graficos rr, hr y ekg), con las instrucciones, de inspira, expira cambiando segun los segundos programados, y con un beep como sonido en cada cambio, y al terminar el tiempo programado se detiene automaticamente la medicion y continua normal pidiendo los datos del paciente como mismo cuando no se programaba un protocolo.
+En la ventana inicial una vez conectado el polar saldra el boton de iniciar (no saldra ahi iniciar protocolo)
+Este boton de iniciar abrira una ventana(no iniciara directamente la medicion), esta ventana con tres opciones
+	- Reposo/Basal
+	- Test Respiracion
+	- Test Ortostatico
+	(Y dos botones en el mismo nivel(fila), atras y siguiente)
+La siguiente ventana con varios input segun la opcion anterior seleccionada
+	- Si Reposo/Basal: Seleccion del tiempo de medicion.
+	- Si Test Respiracion: Seleccion de los tiempos de inspiracion, expiracion y total de medicion, (lo mismo que ya se implemento)
+	- Test Ortostatico: Seleccion del tiempo de cambio o de ponerse de pie y el tiempo total.
+	(Y dos botones en el mismo nivel(fila), atras y iniciar)
+
+Al iniciar la ventana de medicion muestra una ventana de medicion diferente segun el protocolo configurado.
+para el protocolo basal (esta vez agregale un cronometro en vez de un medidor de cuanto tiempo lleva, poner el que le falta), solo cambiar eso en el que 
+se habia implementado. 
+El de protocolo de respiracion es el mismo que se habia implementado, o sea esta ventana se mantiene
+Y la ventana para el protocolo del test ortostatico se un circulo con el tiempo hasta ponerse de pie y luego hasta el fin del test, similar a la ventana del
+protocolo de respiracion.
+
+Revisa el algoritmo de calculo segun el tipo de protocolo y sus configuraciones, los filtros y demas que se empleo en D:\Program\BeatFlow\BeatFlowPC\beatflowpc.py
+e intenta adaptar el mismo algorimo al de la app(D:\Program\BeatFlow\BeatFlow\app\src\main\kotlin\com\beatflow\app\domain\HrvCalculator.kt).
+
+En el archivo de exportacion .hrv en el session.json de la exportacion incluye esta configuracion del protocolo
+Aqui(en el .hrv) los intervalos rr no se guardaran en un csv sino en un txt igual al que se genera en el boton de exportar intervalos rr
+Documenta en el README.md estos cambios, sobre todo comenta bien como se pondra en el json esto (como se pone la parte de los protocolos detallalo bien con un ejemplo para cada uno de los
+tres protocolos)

@@ -4,10 +4,12 @@ import android.content.Context
 import android.net.Uri
 import com.beatflow.app.domain.model.HrvMetrics
 import com.beatflow.app.domain.model.PatientData
+import com.beatflow.app.domain.model.ProtocolConfig
 import com.beatflow.app.domain.model.RawRecord
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.double
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -24,7 +26,8 @@ data class ImportedSession(
     val durationMs: Long,
     val metrics: HrvMetrics?,
     val records: List<RawRecord> = emptyList(),
-    val rrIntervals: List<Double> = emptyList()
+    val rrIntervals: List<Double> = emptyList(),
+    val protocolConfig: ProtocolConfig? = null
 )
 
 @Singleton
@@ -32,31 +35,20 @@ class FileImporter @Inject constructor() {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /**
-     * Importa una sesión desde un archivo .hrv
-     * 
-     * IMPORTANTE: Solo importa:
-     * - Datos del paciente (nombre, edad, sexo)
-     * - Métricas HRV (análisis de variabilidad)
-     * 
-     * NO importa:
-     * - Datos brutos de ECG
-     * - Datos brutos de HR
-     * - Datos brutos de RR
-     */
     fun importSession(context: Context, uri: Uri): Result<ImportedSession> = runCatching {
         val zipBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             ?: throw IllegalStateException("No se pudo leer el archivo")
 
         var jsonContent: String? = null
-        var rrCsvContent: String? = null
+        var rrTxtContent: String? = null
 
         ZipInputStream(zipBytes.inputStream()).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
                 when (entry.name) {
                     "session.json" -> jsonContent = zis.readBytes().decodeToString()
-                    "rr_data.csv" -> rrCsvContent = zis.readBytes().decodeToString()
+                    "rr_data.txt" -> rrTxtContent = zis.readBytes().decodeToString()
+                    "rr_data.csv" -> rrTxtContent = zis.readBytes().decodeToString()
                 }
                 zis.closeEntry()
                 entry = zis.nextEntry
@@ -66,7 +58,7 @@ class FileImporter @Inject constructor() {
         val sesJson = jsonContent ?: throw IllegalStateException("No se encontró session.json en el archivo")
 
         val session = parseSession(sesJson)
-        val rrIntervals = rrCsvContent?.let { parseRrCsv(it) } ?: emptyList()
+        val rrIntervals = rrTxtContent?.let { parseRrTxt(it) } ?: emptyList()
         session.copy(rrIntervals = rrIntervals)
     }
 
@@ -78,10 +70,10 @@ class FileImporter @Inject constructor() {
         val sessionObj = root["session"]?.jsonObject
             ?: throw IllegalStateException("Datos de sesión no encontrados")
         val metricsObj = root["metrics"]?.jsonObject
+        val protocolObj = root["protocol"]?.jsonObject
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
-        // Extraer datos del paciente
         val patientData = PatientData(
             nombre = patientObj["nombre"]?.jsonPrimitive?.content ?: "",
             apellidos = patientObj["apellidos"]?.jsonPrimitive?.content ?: "",
@@ -89,7 +81,6 @@ class FileImporter @Inject constructor() {
             sexo = patientObj["sexo"]?.jsonPrimitive?.content ?: ""
         )
 
-        // Extraer datos de la sesión
         val startTime = dateFormat.parse(
             sessionObj["startTime"]?.jsonPrimitive?.content ?: ""
         )?.time ?: 0L
@@ -98,17 +89,33 @@ class FileImporter @Inject constructor() {
         )?.time ?: 0L
         val durationMs = sessionObj["durationMs"]?.jsonPrimitive?.long ?: 0L
 
-        // Extraer métricas HRV (si existen)
         val metrics = metricsObj?.let { parseMetrics(it) }
 
-        // NO importar registros raw (siempre lista vacía)
+        val protocolConfig = protocolObj?.let { parseProtocolConfig(it) }
+
         return ImportedSession(
             patientData = patientData,
             startTime = startTime,
             endTime = endTime,
             durationMs = durationMs,
             metrics = metrics,
-            records = emptyList()  // Nunca importar datos brutos
+            records = emptyList(),
+            protocolConfig = protocolConfig
+        )
+    }
+
+    private fun parseProtocolConfig(obj: JsonObject): ProtocolConfig {
+        val type = obj["type"]?.jsonPrimitive?.content ?: "basal"
+        val totalTimeSecs = obj["totalTimeSecs"]?.jsonPrimitive?.int ?: 300
+        val inspirationSecs = obj["inspirationSecs"]?.jsonPrimitive?.int
+        val expirationSecs = obj["expirationSecs"]?.jsonPrimitive?.int
+        val standUpSecs = obj["standUpSecs"]?.jsonPrimitive?.int
+        return ProtocolConfig(
+            type = type,
+            totalTimeSecs = totalTimeSecs,
+            inspirationSecs = inspirationSecs,
+            expirationSecs = expirationSecs,
+            standUpSecs = standUpSecs
         )
     }
 
@@ -140,12 +147,9 @@ class FileImporter @Inject constructor() {
         )
     }
 
-    private fun parseRrCsv(csvContent: String): List<Double> {
-        val lines = csvContent.lines().drop(1) // skip header
-        return lines.mapNotNull { line ->
-            val parts = line.split(",", limit = 2)
-            if (parts.size == 2) parts[1].toDoubleOrNull() else null
-        }
+    private fun parseRrTxt(txtContent: String): List<Double> {
+        return txtContent.lines()
+            .mapNotNull { line -> line.trim().toDoubleOrNull() }
     }
 
     private fun defaultMetrics() = HrvMetrics(

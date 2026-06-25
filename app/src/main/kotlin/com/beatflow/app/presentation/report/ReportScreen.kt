@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.beatflow.app.domain.model.HrvMetrics
 import com.beatflow.app.domain.model.HrvSession
+import com.beatflow.app.domain.model.ProtocolConfig
 import com.beatflow.app.presentation.components.FrequencyDomainCard
 import com.beatflow.app.presentation.components.NonLinearCard
 import com.beatflow.app.presentation.components.RealtimeChart
@@ -134,6 +135,10 @@ fun ReportScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     PatientInfoCard(s)
                     Spacer(modifier = Modifier.height(12.dp))
+                    s.protocolConfig?.let { config ->
+                        ProtocolInfoCard(config)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                     metrics?.let { m ->
                         TimeDomainCard(m)
                         Spacer(modifier = Modifier.height(12.dp))
@@ -229,6 +234,27 @@ private fun MetricRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
+    }
+}
+
+@Composable
+private fun ProtocolInfoCard(config: ProtocolConfig) {
+    val typeLabel = when (config.type) {
+        ProtocolConfig.TYPE_BASAL -> "Reposo / Basal"
+        ProtocolConfig.TYPE_RESPIRACION -> "Test Respiración"
+        ProtocolConfig.TYPE_ORTOSTATICO -> "Test Ortostático"
+        else -> config.type
+    }
+
+    MetricCard(
+        title = "Protocolo",
+        icon = Icons.Default.Assignment
+    ) {
+        MetricRow("Tipo", typeLabel)
+        MetricRow("Duración total", "${config.totalTimeSecs / 60} min ${config.totalTimeSecs % 60} s")
+        config.inspirationSecs?.let { MetricRow("Inspiración", "${it} s") }
+        config.expirationSecs?.let { MetricRow("Espiración", "${it} s") }
+        config.standUpSecs?.let { MetricRow("Ponerse de pie", "${it} s") }
     }
 }
 

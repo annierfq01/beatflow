@@ -33,6 +33,10 @@ class SessionRepository @Inject constructor(
         )
     }
 
+    suspend fun updateProtocolConfig(sessionId: Long, json: String?) {
+        sessionDao.updateProtocolConfig(sessionId, json)
+    }
+
     suspend fun addRecords(sessionId: Long, records: List<RawRecord>) {
         val entities = records.map { record ->
             RawRecordEntity(

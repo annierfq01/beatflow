@@ -50,8 +50,8 @@ class FileExporter @Inject constructor(
             zos.write(buildHrCsv(session).toByteArray(Charsets.UTF_8))
             zos.closeEntry()
 
-            zos.putNextEntry(ZipEntry("rr_data.csv"))
-            zos.write(buildRrCsv(session).toByteArray(Charsets.UTF_8))
+            zos.putNextEntry(ZipEntry("rr_data.txt"))
+            zos.write(buildRrTxt(session).toByteArray(Charsets.UTF_8))
             zos.closeEntry()
 
             zos.putNextEntry(ZipEntry("ecg_data.csv"))
@@ -74,11 +74,10 @@ class FileExporter @Inject constructor(
         return sb.toString()
     }
 
-    private fun buildRrCsv(session: HrvSession): String {
+    private fun buildRrTxt(session: HrvSession): String {
         val sb = StringBuilder()
-        sb.appendLine("timestamp,rr_ms")
         session.records.forEach { record ->
-            record.rr?.let { sb.appendLine("${record.timestamp},$it") }
+            record.rr?.let { sb.appendLine("%.0f".format(it)) }
         }
         return sb.toString()
     }
@@ -109,6 +108,15 @@ class FileExporter @Inject constructor(
                 put("endTime", endFormatted)
                 put("durationMs", session.durationMs)
                 put("totalRecords", session.records.size)
+            }
+            session.protocolConfig?.let { config ->
+                putJsonObject("protocol") {
+                    put("type", config.type)
+                    put("totalTimeSecs", config.totalTimeSecs)
+                    config.inspirationSecs?.let { put("inspirationSecs", it) }
+                    config.expirationSecs?.let { put("expirationSecs", it) }
+                    config.standUpSecs?.let { put("standUpSecs", it) }
+                }
             }
             if (session.metrics != null) {
                 putJsonObject("metrics") {

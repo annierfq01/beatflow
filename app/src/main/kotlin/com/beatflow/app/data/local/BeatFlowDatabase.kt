@@ -8,7 +8,7 @@ import com.beatflow.app.data.local.entity.SessionEntity
 
 @Database(
     entities = [SessionEntity::class, RawRecordEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class BeatFlowDatabase : RoomDatabase() {

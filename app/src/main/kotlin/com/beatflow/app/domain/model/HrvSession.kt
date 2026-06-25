@@ -9,5 +9,6 @@ data class HrvSession(
     val endTime: Long,
     val durationMs: Long,
     val records: List<RawRecord>,
-    val metrics: HrvMetrics? = null
+    val metrics: HrvMetrics? = null,
+    val protocolConfig: ProtocolConfig? = null
 )

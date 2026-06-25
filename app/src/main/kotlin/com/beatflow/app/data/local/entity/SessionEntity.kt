@@ -13,7 +13,8 @@ data class SessionEntity(
     val patientApellidos: String? = null,
     val patientEdad: Int? = null,
     val patientSexo: String? = null,
-    val exported: Boolean = false
+    val exported: Boolean = false,
+    val protocolConfigJson: String? = null
 ) {
     fun toPatientData(): PatientData? {
         if (patientNombre == null || patientApellidos == null || patientEdad == null || patientSexo == null) {

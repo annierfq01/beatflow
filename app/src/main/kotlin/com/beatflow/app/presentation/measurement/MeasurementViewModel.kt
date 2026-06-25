@@ -7,8 +7,11 @@ import com.beatflow.app.bluetooth.ConnectionState
 import com.beatflow.app.bluetooth.HrMeasurement
 import com.beatflow.app.bluetooth.PolarManager
 import com.beatflow.app.data.repository.SessionRepository
+import com.beatflow.app.domain.model.ProtocolConfig
 import com.beatflow.app.domain.model.RawRecord
 import com.beatflow.app.util.SoundPlayer
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -72,6 +75,12 @@ class MeasurementViewModel @Inject constructor(
     private val _protocolCompleted = MutableStateFlow(false)
     val protocolCompleted: StateFlow<Boolean> = _protocolCompleted.asStateFlow()
 
+    private val _protocolType = MutableStateFlow("")
+    val protocolType: StateFlow<String> = _protocolType.asStateFlow()
+
+    private val _orthostaticPhase = MutableStateFlow("pre")
+    val orthostaticPhase: StateFlow<String> = _orthostaticPhase.asStateFlow()
+
     private var timerJob: Job? = null
     private var ecgSaveJob: Job? = null
     private var protocolJob: Job? = null
@@ -81,6 +90,7 @@ class MeasurementViewModel @Inject constructor(
     private var protocolTotalSecs = 0
     private var inspirationSecs = 5
     private var expirationSecs = 5
+    private var standUpSecs = 120
     private val bufferMutex = Mutex()
     private val ecgPersistenceBuffer = mutableListOf<Double>()
     private val pendingRecords = mutableListOf<RawRecord>()
@@ -90,27 +100,73 @@ class MeasurementViewModel @Inject constructor(
     private val rrRingBuffer = ArrayDeque<Float>()
     private val ecgRingBuffer = ArrayDeque<Float>()
 
+    private var currentProtocolConfig: ProtocolConfig? = null
+
+    fun getProtocolConfig(): ProtocolConfig? = currentProtocolConfig
+
     fun startSession() {
         try {
             sessionStartTime = System.currentTimeMillis()
             _isRecording.value = true
+            _protocolType.value = ""
             resetBuffers()
             startStreaming()
             startTimers()
         } catch (e: Throwable) { e.printStackTrace() }
     }
 
-    fun startSessionWithProtocol(totalSecs: Int, inspSecs: Int, expSecs: Int) {
+    fun startBasalSession(totalSecs: Int) {
+        try {
+            protocolTotalSecs = totalSecs
+            inspirationSecs = 0
+            expirationSecs = 0
+            standUpSecs = 0
+            sessionStartTime = System.currentTimeMillis()
+            _isRecording.value = true
+            _protocolType.value = ProtocolConfig.TYPE_BASAL
+            _protocolTimeLeft.value = totalSecs
+            currentProtocolConfig = ProtocolConfig.basal(totalSecs)
+            resetBuffers()
+            startStreaming()
+            startTimers()
+            startBasalTimer()
+        } catch (e: Throwable) { e.printStackTrace() }
+    }
+
+    fun startBreathingSession(totalSecs: Int, inspSecs: Int, expSecs: Int) {
         try {
             protocolTotalSecs = totalSecs
             inspirationSecs = inspSecs
             expirationSecs = expSecs
+            standUpSecs = 0
             sessionStartTime = System.currentTimeMillis()
             _isRecording.value = true
+            _protocolType.value = ProtocolConfig.TYPE_RESPIRACION
+            _protocolTimeLeft.value = totalSecs
+            currentProtocolConfig = ProtocolConfig.respiracion(totalSecs, inspSecs, expSecs)
             resetBuffers()
             startStreaming()
             startTimers()
-            startProtocolTimer()
+            startBreathingTimer()
+        } catch (e: Throwable) { e.printStackTrace() }
+    }
+
+    fun startOrthostaticSession(totalSecs: Int, standUp: Int) {
+        try {
+            protocolTotalSecs = totalSecs
+            inspirationSecs = 0
+            expirationSecs = 0
+            standUpSecs = standUp
+            sessionStartTime = System.currentTimeMillis()
+            _isRecording.value = true
+            _protocolType.value = ProtocolConfig.TYPE_ORTOSTATICO
+            _protocolTimeLeft.value = totalSecs
+            _orthostaticPhase.value = "pre"
+            currentProtocolConfig = ProtocolConfig.ortostatico(totalSecs, standUp)
+            resetBuffers()
+            startStreaming()
+            startTimers()
+            startOrthostaticTimer()
         } catch (e: Throwable) { e.printStackTrace() }
     }
 
@@ -140,6 +196,16 @@ class MeasurementViewModel @Inject constructor(
 
         viewModelScope.launch {
             _sessionId = sessionRepository.createSession(sessionStartTime)
+            saveProtocolConfig()
+        }
+    }
+
+    private fun saveProtocolConfig() {
+        val config = currentProtocolConfig ?: return
+        val sid = _sessionId ?: return
+        val jsonStr = kotlinx.serialization.json.Json.encodeToString(config)
+        viewModelScope.launch {
+            sessionRepository.updateProtocolConfig(sid, jsonStr)
         }
     }
 
@@ -225,7 +291,29 @@ class MeasurementViewModel @Inject constructor(
         }
     }
 
-    private fun startProtocolTimer() {
+    private fun startBasalTimer() {
+        val totalSecs = protocolTotalSecs
+        _protocolTimeLeft.value = totalSecs
+
+        protocolJob = viewModelScope.launch {
+            var remaining = totalSecs
+            while (remaining > 0) {
+                delay(1000)
+                remaining--
+                _protocolTimeLeft.value = remaining
+
+                if (remaining <= 0) {
+                    _isRecording.value = false
+                    timerJob?.cancel()
+                    ecgSaveJob?.cancel()
+                    flushRecords()
+                    _protocolCompleted.value = true
+                }
+            }
+        }
+    }
+
+    private fun startBreathingTimer() {
         val totalSecs = protocolTotalSecs
         val inspSecs = inspirationSecs
         val expSecs = expirationSecs
@@ -239,6 +327,7 @@ class MeasurementViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Default) {
             try { SoundPlayer.beep(context) } catch (_: Exception) { }
         }
+
         protocolJob = viewModelScope.launch {
             while (totalLeft > 0) {
                 delay(1000)
@@ -263,6 +352,53 @@ class MeasurementViewModel @Inject constructor(
                     ecgSaveJob?.cancel()
                     flushRecords()
                     _breathingPhase.value = "COMPLETADO"
+                    _protocolCompleted.value = true
+                }
+            }
+        }
+    }
+
+    private fun startOrthostaticTimer() {
+        val standUp = standUpSecs
+        val totalSecs = protocolTotalSecs
+
+        _orthostaticPhase.value = "pre"
+        _phaseTimeLeft.value = standUp
+        _protocolTimeLeft.value = totalSecs
+        var totalLeft = totalSecs
+        var remainingStandUp = standUp
+
+        viewModelScope.launch(Dispatchers.Default) {
+            try { SoundPlayer.beep(context) } catch (_: Exception) { }
+        }
+
+        protocolJob = viewModelScope.launch {
+            while (totalLeft > 0) {
+                delay(1000)
+                totalLeft--
+                remainingStandUp--
+                _protocolTimeLeft.value = totalLeft
+
+                if (remainingStandUp > 0) {
+                    _phaseTimeLeft.value = remainingStandUp
+                } else {
+                    if (_orthostaticPhase.value != "post") {
+                        _orthostaticPhase.value = "post"
+                        _phaseTimeLeft.value = totalLeft
+                        viewModelScope.launch(Dispatchers.Default) {
+                            try { SoundPlayer.beep(context) } catch (_: Exception) { }
+                        }
+                    }
+                    if (totalLeft > 0) {
+                        _phaseTimeLeft.value = totalLeft
+                    }
+                }
+
+                if (totalLeft <= 0) {
+                    _isRecording.value = false
+                    timerJob?.cancel()
+                    ecgSaveJob?.cancel()
+                    flushRecords()
                     _protocolCompleted.value = true
                 }
             }

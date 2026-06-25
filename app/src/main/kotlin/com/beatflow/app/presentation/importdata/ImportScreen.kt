@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.beatflow.app.domain.model.ProtocolConfig
 import com.beatflow.app.export.FileImporter
 import com.beatflow.app.export.ImportedSession
 import com.beatflow.app.presentation.components.FrequencyDomainCard
@@ -234,6 +235,11 @@ private fun ImportedDataContent(
             }
         }
 
+        data.protocolConfig?.let { config ->
+            Spacer(modifier = Modifier.height(12.dp))
+            ProtocolImportCard(config)
+        }
+
         data.metrics?.let { metrics ->
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -288,6 +294,27 @@ private fun ImportedDataContent(
             ) {
                 Text("INICIO")
             }
+        }
+    }
+}
+
+@Composable
+private fun ProtocolImportCard(config: ProtocolConfig) {
+    val typeLabel = when (config.type) {
+        ProtocolConfig.TYPE_BASAL -> "Reposo / Basal"
+        ProtocolConfig.TYPE_RESPIRACION -> "Test Respiración"
+        ProtocolConfig.TYPE_ORTOSTATICO -> "Test Ortostático"
+        else -> config.type
+    }
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Protocolo", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            MetricDetailRow("Tipo", typeLabel)
+            MetricDetailRow("Duración", "${config.totalTimeSecs / 60} min ${config.totalTimeSecs % 60} s")
+            config.inspirationSecs?.let { MetricDetailRow("Inspiración", "${it} s") }
+            config.expirationSecs?.let { MetricDetailRow("Espiración", "${it} s") }
+            config.standUpSecs?.let { MetricDetailRow("Ponerse de pie", "${it} s") }
         }
     }
 }

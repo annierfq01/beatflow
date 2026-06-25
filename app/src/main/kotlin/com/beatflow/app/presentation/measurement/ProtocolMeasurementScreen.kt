@@ -18,17 +18,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.beatflow.app.domain.model.ProtocolConfig
 import com.beatflow.app.presentation.theme.BeatFlowColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProtocolMeasurementScreen(
+    protocolType: String,
     protocolTotalSecs: Int,
     inspirationSecs: Int = 5,
     expirationSecs: Int = 5,
+    standUpSecs: Int = 120,
     onNavigateToPatientForm: (Long) -> Unit,
     onNavigateBack: () -> Unit,
     viewModel: MeasurementViewModel = hiltViewModel()
@@ -40,11 +44,23 @@ fun ProtocolMeasurementScreen(
     val phaseTimeLeft by viewModel.phaseTimeLeft.collectAsState()
     val protocolTimeLeft by viewModel.protocolTimeLeft.collectAsState()
     val protocolCompleted by viewModel.protocolCompleted.collectAsState()
+    val orthostaticPhase by viewModel.orthostaticPhase.collectAsState()
 
     var showStopConfirm by remember { mutableStateOf(false) }
 
+    val title = when (protocolType) {
+        ProtocolConfig.TYPE_BASAL -> "Reposo / Basal"
+        ProtocolConfig.TYPE_RESPIRACION -> "Test Respiración"
+        ProtocolConfig.TYPE_ORTOSTATICO -> "Test Ortostático"
+        else -> "Medición"
+    }
+
     LaunchedEffect(Unit) {
-        viewModel.startSessionWithProtocol(protocolTotalSecs, inspirationSecs, expirationSecs)
+        when (protocolType) {
+            ProtocolConfig.TYPE_BASAL -> viewModel.startBasalSession(protocolTotalSecs)
+            ProtocolConfig.TYPE_RESPIRACION -> viewModel.startBreathingSession(protocolTotalSecs, inspirationSecs, expirationSecs)
+            ProtocolConfig.TYPE_ORTOSTATICO -> viewModel.startOrthostaticSession(protocolTotalSecs, standUpSecs)
+        }
     }
 
     LaunchedEffect(protocolCompleted) {
@@ -57,7 +73,7 @@ fun ProtocolMeasurementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Protocolo de respiración") },
+                title = { Text(title) },
                 actions = {
                     if (batteryLevel >= 0) {
                         Row(
@@ -101,14 +117,29 @@ fun ProtocolMeasurementScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                if (breathingPhase.isNotEmpty()) {
-                    BreathingGuideCard(
-                        phase = breathingPhase,
-                        phaseTimeLeft = phaseTimeLeft,
-                        protocolTimeLeft = protocolTimeLeft,
-                        maxPhaseTime = if (breathingPhase.contains("INSPIRA", ignoreCase = true))
-                            inspirationSecs else expirationSecs
-                    )
+                when (protocolType) {
+                    ProtocolConfig.TYPE_BASAL -> {
+                        BasalTimerCard(protocolTimeLeft)
+                    }
+                    ProtocolConfig.TYPE_RESPIRACION -> {
+                        if (breathingPhase.isNotEmpty()) {
+                            BreathingGuideCard(
+                                phase = breathingPhase,
+                                phaseTimeLeft = phaseTimeLeft,
+                                protocolTimeLeft = protocolTimeLeft,
+                                maxPhaseTime = if (breathingPhase.contains("INSPIRA", ignoreCase = true))
+                                    inspirationSecs else expirationSecs
+                            )
+                        }
+                    }
+                    ProtocolConfig.TYPE_ORTOSTATICO -> {
+                        OrthostaticTimerCard(
+                            orthostaticPhase = orthostaticPhase,
+                            phaseTimeLeft = phaseTimeLeft,
+                            protocolTimeLeft = protocolTimeLeft,
+                            standUpSecs = standUpSecs
+                        )
+                    }
                 }
             }
 
@@ -155,6 +186,105 @@ fun ProtocolMeasurementScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun BasalTimerCard(remainingSecs: Int) {
+    val minutes = remainingSecs / 60
+    val secs = remainingSecs % 60
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Tiempo restante",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "%02d:%02d".format(minutes, secs),
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = BeatFlowColors.HeartRed,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { 0f },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                color = BeatFlowColors.HeartRed.copy(alpha = 0.3f),
+                trackColor = BeatFlowColors.HeartRed.copy(alpha = 0.1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun OrthostaticTimerCard(
+    orthostaticPhase: String,
+    phaseTimeLeft: Int,
+    protocolTimeLeft: Int,
+    standUpSecs: Int
+) {
+    val isPrePhase = orthostaticPhase == "pre"
+    val label = if (isPrePhase) "Ponte de pie en" else "Fin del test en"
+    val circleColor = if (isPrePhase) BeatFlowColors.Primary else BeatFlowColors.HeartRed
+    val circleSize by animateDpAsState(
+        targetValue = if (isPrePhase) 120.dp else 140.dp,
+        animationSpec = tween(800)
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(circleSize)
+                    .clip(CircleShape)
+                    .background(circleColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isPrePhase) "STOP" else "FIN",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = circleColor
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${phaseTimeLeft}s",
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = circleColor
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Protocolo: ${protocolTimeLeft / 60}:%02d".format(protocolTimeLeft % 60),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
