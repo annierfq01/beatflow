@@ -18,6 +18,7 @@ import com.beatflow.app.presentation.report.ReportScreen
 
 object Routes {
     const val MAIN = "main"
+    const val MEASUREMENT = "measurement"
     const val PROTOCOL_SELECT = "protocol_select"
     const val PROTOCOL_CONFIG = "protocol_config/{protocolType}"
     const val PROTOCOL_MEASUREMENT = "protocol_measurement"
